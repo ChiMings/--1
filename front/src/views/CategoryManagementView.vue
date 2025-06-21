@@ -114,7 +114,7 @@
               {{ category.isActive ? '🚫 禁用' : '✅ 启用' }}
             </button>
             <button 
-              @click="deleteCategory(category)" 
+              @click="deleteCategoryHandler(category)" 
               class="btn btn-sm btn-danger"
               :disabled="category.isDefault"
               :title="category.isDefault ? '默认分类不能删除' : (category.productCount > 0 ? '删除后商品将移动到默认分类' : '删除分类')"
@@ -216,6 +216,7 @@
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@/api/categories';
 
 const userStore = useUserStore();
 
@@ -268,97 +269,17 @@ const mostPopularCategory = computed(() => {
     .sort((a, b) => (b.productCount || 0) - (a.productCount || 0))[0];
 });
 
-// 模拟分类数据
-const mockCategories = [
-  {
-    id: 0,
-    name: '其他',
-    icon: '📦',
-    description: '未分类或其他类型商品',
-    isActive: true,
-    productCount: 0,
-    sortOrder: 0,
-    isDefault: true,
-    createdAt: '2023-09-01T08:00:00Z',
-    updatedAt: '2023-09-01T08:00:00Z'
-  },
-  {
-    id: 1,
-    name: '数码产品',
-    icon: '📱',
-    description: '手机、电脑、平板等数码设备',
-    isActive: true,
-    productCount: 45,
-    sortOrder: 10,
-    createdAt: '2023-10-01T10:00:00Z',
-    updatedAt: '2023-11-01T10:00:00Z'
-  },
-  {
-    id: 2,
-    name: '学习用品',
-    icon: '📚',
-    description: '教材、文具、学习资料等',
-    isActive: true,
-    productCount: 32,
-    sortOrder: 9,
-    createdAt: '2023-10-01T10:00:00Z',
-    updatedAt: '2023-10-20T10:00:00Z'
-  },
-  {
-    id: 3,
-    name: '服装配饰',
-    icon: '👕',
-    description: '服装、鞋帽、饰品等',
-    isActive: true,
-    productCount: 28,
-    sortOrder: 8,
-    createdAt: '2023-10-01T10:00:00Z',
-    updatedAt: '2023-10-15T10:00:00Z'
-  },
-  {
-    id: 4,
-    name: '体育用品',
-    icon: '🏀',
-    description: '运动器材、健身用品等',
-    isActive: true,
-    productCount: 18,
-    sortOrder: 7,
-    createdAt: '2023-10-01T10:00:00Z',
-    updatedAt: '2023-10-10T10:00:00Z'
-  },
-  {
-    id: 5,
-    name: '生活用品',
-    icon: '🏠',
-    description: '日常生活所需物品',
-    isActive: true,
-    productCount: 23,
-    sortOrder: 6,
-    createdAt: '2023-10-01T10:00:00Z',
-    updatedAt: '2023-10-25T10:00:00Z'
-  },
-  {
-    id: 6,
-    name: '娱乐休闲',
-    icon: '🎮',
-    description: '游戏、音乐、娱乐产品',
-    isActive: false,
-    productCount: 8,
-    sortOrder: 5,
-    createdAt: '2023-10-01T10:00:00Z',
-    updatedAt: '2023-10-05T10:00:00Z'
-  }
-];
-
 // 方法
 async function loadCategories() {
   try {
     loading.value = true;
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 800));
-    categories.value = mockCategories.sort((a, b) => b.sortOrder - a.sortOrder);
+    const response = await getCategories();
+    if (response.data.status === 'success') {
+      categories.value = response.data.data.sort((a, b) => (b.sortOrder || 0) - (a.sortOrder || 0));
+    }
   } catch (error) {
     console.error('Failed to load categories:', error);
+    alert('加载分类失败，请稍后重试');
   } finally {
     loading.value = false;
   }
@@ -398,7 +319,7 @@ function resetForm() {
   categoryForm.isActive = true;
 }
 
-function submitCategory() {
+async function submitCategory() {
   if (!categoryForm.name.trim()) return;
   
   const categoryData = {
@@ -406,82 +327,66 @@ function submitCategory() {
     icon: categoryForm.icon,
     description: categoryForm.description.trim(),
     sortOrder: categoryForm.sortOrder || 0,
-    isActive: categoryForm.isActive,
-    updatedAt: new Date().toISOString()
+    isActive: categoryForm.isActive
   };
   
-  if (isEditing.value && editingCategory.value) {
-    // 更新分类
-    const index = categories.value.findIndex(c => c.id === editingCategory.value.id);
-    if (index !== -1) {
-      categories.value[index] = { ...categories.value[index], ...categoryData };
+  try {
+    if (isEditing.value && editingCategory.value) {
+      // 更新分类
+      const response = await updateCategory(editingCategory.value.id, categoryData);
+      if (response.data.status === 'success') {
+        alert('分类更新成功！');
+        loadCategories(); // 重新加载分类列表
+      }
+    } else {
+      // 创建新分类
+      const response = await createCategory(categoryData);
+      if (response.data.status === 'success') {
+        alert('分类添加成功！');
+        loadCategories(); // 重新加载分类列表
+      }
     }
-    alert('分类更新成功！');
-  } else {
-    // 创建新分类
-    const newCategory = {
-      id: Date.now(),
-      productCount: 0,
-      createdAt: new Date().toISOString(),
-      ...categoryData
-    };
-    categories.value.unshift(newCategory);
-    alert('分类添加成功！');
+    closeCategoryDialog();
+  } catch (error) {
+    console.error('提交分类失败:', error);
+    alert(error.response?.data?.message || '操作失败，请稍后重试');
   }
-  
-  // 重新排序
-  categories.value.sort((a, b) => b.sortOrder - a.sortOrder);
-  closeCategoryDialog();
 }
 
-function toggleCategoryStatus(category) {
-  category.isActive = !category.isActive;
-  category.updatedAt = new Date().toISOString();
-  alert(`分类已${category.isActive ? '启用' : '禁用'}`);
+async function toggleCategoryStatus(category) {
+  try {
+    const newStatus = !category.isActive;
+    const response = await updateCategory(category.id, {
+      ...category,
+      isActive: newStatus
+    });
+    if (response.data.status === 'success') {
+      category.isActive = newStatus;
+      alert(`分类已${newStatus ? '启用' : '禁用'}`);
+    }
+  } catch (error) {
+    console.error('更新分类状态失败:', error);
+    alert('操作失败，请稍后重试');
+  }
 }
 
-function deleteCategory(category) {
-  // 防止删除默认分类
-  if (category.isDefault) {
-    alert('默认分类不能删除！');
-    return;
-  }
-  
-  // 获取默认分类
-  const defaultCategory = categories.value.find(c => c.isDefault);
-  if (!defaultCategory) {
-    alert('错误：找不到默认分类！');
-    return;
-  }
-  
+async function deleteCategoryHandler(category) {
   // 构建确认消息
   let confirmMessage = `确定要删除分类"${category.name}"吗？`;
   if (category.productCount > 0) {
-    confirmMessage += `\n\n该分类下有 ${category.productCount} 个商品，删除后这些商品将自动移动到"${defaultCategory.name}"分类。`;
+    confirmMessage += `\n\n该分类下有 ${category.productCount} 个商品，删除后这些商品将自动移动到默认分类。`;
   }
   
   if (confirm(confirmMessage)) {
-    // 如果有商品，先迁移到默认分类
-    if (category.productCount > 0) {
-      // 这里应该调用API来迁移商品，现在模拟更新商品数量
-      defaultCategory.productCount += category.productCount;
-      
-      // 在实际项目中，这里应该调用后端API：
-      // await moveProductsToDefaultCategory(category.id, defaultCategory.id);
-      
-      console.log(`已将 ${category.productCount} 个商品从"${category.name}"迁移到"${defaultCategory.name}"`);
-    }
-    
-    // 删除分类
-    const index = categories.value.findIndex(c => c.id === category.id);
-    if (index !== -1) {
-      categories.value.splice(index, 1);
-      
-      let successMessage = '分类删除成功！';
-      if (category.productCount > 0) {
-        successMessage += `\n${category.productCount} 个商品已自动移动到"${defaultCategory.name}"分类。`;
+    try {
+      const response = await deleteCategory(category.id);
+      if (response.data.status === 'success') {
+        alert('分类删除成功！');
+        loadCategories(); // 重新加载分类列表
       }
-      alert(successMessage);
+    } catch (error) {
+      console.error('删除分类失败:', error);
+      alert(error.response?.data?.message || '删除失败，请稍后重试');
     }
   }
 }

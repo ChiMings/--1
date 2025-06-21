@@ -181,7 +181,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import ProductCard from '@/components/ProductCard.vue';
 import { getProductDetail, createProduct, updateProduct } from '@/api/products';
-import { getCategories } from '@/api/products';
+import { getCategories } from '@/api/categories';
 
 const route = useRoute();
 const router = useRouter();
@@ -275,7 +275,12 @@ async function loadProduct() {
 async function loadCategories() {
   try {
     const response = await getCategories();
-    categories.value = response.data || [];
+    if (response.data.status === 'success') {
+      categories.value = response.data.data || [];
+    } else {
+      console.error('Failed to load categories:', response.data.message);
+      categories.value = [];
+    }
   } catch (err) {
     console.error('Failed to load categories:', err);
     categories.value = [];
