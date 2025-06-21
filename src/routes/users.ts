@@ -101,4 +101,72 @@ router.get('/:id/products', async (req, res) => {
   }
 });
 
+// 获取我收藏的商品
+router.get('/me/favorites', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+
+    // TODO: 从JWT获取当前用户ID
+    const currentUserId = 'current-user-id';
+
+    // TODO: 查询用户收藏的商品
+    const mockFavorites = [
+      {
+        id: '1',
+        name: '九成新MacBook Pro',
+        description: '9成新，配置高，适合学习工作',
+        price: 8500.00,
+        categoryId: 'cat1',
+        category: {
+          id: 'cat1',
+          name: '电子产品'
+        },
+        sellerId: 'user1',
+        seller: {
+          id: 'user1',
+          nickname: '小李',
+          avatar: null
+        },
+        status: '在售',
+        images: ['macbook1.jpg', 'macbook2.jpg'],
+        viewCount: 125,
+        createdAt: new Date(Date.now() - 86400000).toISOString(), // 1天前
+        favoriteAt: new Date(Date.now() - 43200000).toISOString() // 12小时前收藏
+      },
+      {
+        id: '2',
+        name: '大学教材《高等数学》',
+        description: '同济版第七版，无笔记，九成新',
+        price: 25.00,
+        categoryId: 'cat2',
+        category: {
+          id: 'cat2',
+          name: '教材书籍'
+        },
+        sellerId: 'user2',
+        seller: {
+          id: 'user2',
+          nickname: '小王',
+          avatar: null
+        },
+        status: '在售',
+        images: ['book1.jpg'],
+        viewCount: 45,
+        createdAt: new Date(Date.now() - 172800000).toISOString(), // 2天前
+        favoriteAt: new Date(Date.now() - 21600000).toISOString() // 6小时前收藏
+      }
+    ];
+
+    return res.json(success('获取收藏商品成功', {
+      items: mockFavorites,
+      total: mockFavorites.length,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(mockFavorites.length / Number(limit))
+    }));
+  } catch (err) {
+    return res.status(500).json(error('获取失败'));
+  }
+});
+
 export default router; 

@@ -83,7 +83,17 @@ export const useUserStore = defineStore('user', () => {
 
   async function handleLogin(loginFn, credentials) {
     const response = await loginFn(credentials);
-    const data = response.data;
+    
+    // 处理真实API响应格式: { success: true, message: "", data: { token, user } }
+    let data;
+    if (response.data && response.data.data) {
+      // 真实API响应
+      data = response.data.data;
+    } else {
+      // 模拟数据响应
+      data = response.data;
+    }
+    
     token.value = data.token;
     userInfo.value = data.user;
     localStorage.setItem('token', data.token);

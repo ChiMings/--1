@@ -23,7 +23,7 @@ export interface PaginatedResponse<T> {
 
 // JWT载荷类型
 export interface JwtPayload {
-  userId: string;
+  id: string;
   studentId: string;
   role: string;
   iat?: number;
@@ -32,7 +32,11 @@ export interface JwtPayload {
 
 // 扩展Request类型，包含用户信息
 export interface AuthenticatedRequest extends Request {
-  user?: JwtPayload;
+  user?: {
+    id: string;
+    studentId: string;
+    role: string;
+  };
 }
 
 // 用户相关类型
