@@ -1,57 +1,36 @@
 import { Router } from 'express';
 import { success, error, badRequest } from '../utils/response';
+import { prisma } from '../utils/database';
 
 const router = Router();
 
 // 获取所有分类
 router.get('/', async (req, res) => {
   try {
-    // TODO: 从数据库查询分类
-    const mockCategories = [
-      {
-        id: 'cat1',
-        name: '电子产品',
-        description: '手机、电脑、平板等电子设备',
-        icon: 'electronics',
-        productCount: 156,
-        createdAt: new Date().toISOString()
+    // 从数据库查询分类，包含商品数量
+    const categories = await prisma.category.findMany({
+      where: { deleted: false },
+      include: {
+        _count: {
+          select: { products: { where: { deleted: false } } }
+        }
       },
-      {
-        id: 'cat2',
-        name: '教材书籍',
-        description: '各类教材、参考书、小说等',
-        icon: 'books',
-        productCount: 89,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat3',
-        name: '生活用品',
-        description: '日用品、化妆品、服装等',
-        icon: 'lifestyle',
-        productCount: 234,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat4',
-        name: '体育用品',
-        description: '运动器材、健身用品等',
-        icon: 'sports',
-        productCount: 67,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'cat5',
-        name: '其他',
-        description: '其他未分类商品',
-        icon: 'other',
-        productCount: 45,
-        createdAt: new Date().toISOString()
-      }
-    ];
+      orderBy: { createdAt: 'asc' }
+    });
 
-    return res.json(success('获取分类列表成功', mockCategories));
+    // 格式化返回数据
+    const formattedCategories = categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      productCount: category._count.products,
+      createdAt: category.createdAt.toISOString(),
+      updatedAt: category.updatedAt.toISOString()
+    }));
+
+    return res.json(success('获取分类列表成功', formattedCategories));
   } catch (err) {
+    console.error('Get categories error:', err);
     return res.status(500).json(error('获取失败'));
   }
 });
@@ -59,26 +38,46 @@ router.get('/', async (req, res) => {
 // 创建分类（管理员功能）
 router.post('/', async (req, res) => {
   try {
-    const { name, description, icon } = req.body;
+    const { name, description } = req.body;
 
-    if (!name) {
+    if (!name || name.trim() === '') {
       return res.status(400).json(badRequest('分类名称不能为空'));
     }
 
     // TODO: 验证管理员权限
-    // TODO: 实现分类创建逻辑
+    
+    // 检查分类名称是否已存在
+    const existingCategory = await prisma.category.findFirst({
+      where: { 
+        name: name.trim(),
+        deleted: false 
+      }
+    });
 
-    const newCategory = {
-      id: 'new-category-id',
-      name,
-      description: description || '',
-      icon: icon || 'default',
+    if (existingCategory) {
+      return res.status(409).json(badRequest('分类名称已存在'));
+    }
+
+    // 创建新分类
+    const newCategory = await prisma.category.create({
+      data: {
+        name: name.trim(),
+        description: description ? description.trim() : null
+      }
+    });
+
+    const formattedCategory = {
+      id: newCategory.id,
+      name: newCategory.name,
+      description: newCategory.description,
       productCount: 0,
-      createdAt: new Date().toISOString()
+      createdAt: newCategory.createdAt.toISOString(),
+      updatedAt: newCategory.updatedAt.toISOString()
     };
 
-    return res.status(201).json(success('分类创建成功', newCategory));
+    return res.status(201).json(success('分类创建成功', formattedCategory));
   } catch (err) {
+    console.error('Create category error:', err);
     return res.status(500).json(error('创建失败'));
   }
 });
@@ -134,11 +133,35 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     // TODO: 验证管理员权限
-    // TODO: 检查分类下是否有商品
-    // TODO: 实现分类删除逻辑
+    
+    // 检查分类是否存在
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { products: { where: { deleted: false } } }
+        }
+      }
+    });
+
+    if (!category || category.deleted) {
+      return res.status(404).json(error('分类不存在'));
+    }
+
+    // 检查分类下是否有商品
+    if (category._count.products > 0) {
+      return res.status(400).json(badRequest('该分类下还有商品，无法删除'));
+    }
+
+    // 软删除分类
+    await prisma.category.update({
+      where: { id },
+      data: { deleted: true }
+    });
 
     return res.json(success('分类删除成功'));
   } catch (err) {
+    console.error('Delete category error:', err);
     return res.status(500).json(error('删除失败'));
   }
 });

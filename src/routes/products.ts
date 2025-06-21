@@ -263,4 +263,18 @@ router.get('/:id/comments', async (req, res) => {
   }
 });
 
+// 删除评论
+router.delete('/:id/comments/:commentId', async (req, res) => {
+  try {
+    const { id, commentId } = req.params;
+
+    // TODO: 验证用户权限（只能删除自己的评论或商品所有者可以删除）
+    // TODO: 实现评论删除逻辑
+
+    return res.json(success('评论删除成功'));
+  } catch (err) {
+    return res.status(500).json(error('删除失败'));
+  }
+});
+
 export default router; 
