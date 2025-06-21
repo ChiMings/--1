@@ -1,5 +1,21 @@
 <template>
   <div class="home">
+    <!-- 未认证用户提示 -->
+    <div v-if="showUnverifiedNotice" class="unverified-banner">
+      <div class="banner-content">
+        <div class="banner-message">
+          <span class="banner-icon">⚠️</span>
+          <div class="banner-text">
+            <strong>您当前为未认证用户</strong>
+            <p>功能受限：无法发布商品、评论、查看联系方式。完成账号激活可获得完整功能。</p>
+          </div>
+        </div>
+        <router-link to="/login" class="btn btn-warning">
+          去激活账号
+        </router-link>
+      </div>
+    </div>
+
     <!-- 搜索和筛选区域 -->
     <div class="search-section">
       <div class="search-container">
@@ -108,10 +124,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
 import ProductCard from '@/components/ProductCard.vue';
 import { getProducts, getCategories } from '@/api/products';
 
 const router = useRouter();
+const userStore = useUserStore();
 
 // 响应式数据
 const loading = ref(false);
@@ -132,6 +150,10 @@ const filters = reactive({
 const pageSize = 20;
 
 // 计算属性
+const showUnverifiedNotice = computed(() => {
+  return userStore.isLoggedIn && userStore.userInfo?.role === '未认证用户';
+});
+
 const emptyMessage = computed(() => {
   if (searchKeyword.value || filters.categoryId || filters.status) {
     return '没有找到符合条件的商品';
@@ -236,6 +258,64 @@ onMounted(() => {
 <style scoped>
 .home {
   min-height: 100vh;
+}
+
+.unverified-banner {
+  background: linear-gradient(135deg, #ff9f43, #f39c12);
+  color: white;
+  padding: 16px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.banner-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.banner-message {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.banner-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.banner-text strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+.banner-text p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.btn-warning {
+  background: #fff;
+  color: #f39c12;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-warning:hover {
+  background: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .search-section {

@@ -215,23 +215,6 @@
       </div>
     </div>
 
-    <!-- 账号操作 -->
-    <div class="info-section danger-section">
-      <h3>账号操作</h3>
-      <div class="danger-actions">
-        <button @click="exportData" class="btn btn-outline-primary">
-          导出我的数据
-        </button>
-        
-        <button @click="confirmDeactivate" class="btn btn-outline-danger">
-          注销账号
-        </button>
-      </div>
-      <div class="danger-hint">
-        注销账号将删除您的所有数据，此操作不可恢复，请谨慎操作。
-      </div>
-    </div>
-
     <!-- 错误信息 -->
     <div v-if="error" class="error-message">
       {{ error }}
@@ -388,20 +371,6 @@ async function updatePrivacySettings() {
   }
 }
 
-// 导出数据
-function exportData() {
-  alert('导出功能开发中，敬请期待');
-}
-
-// 确认注销账号
-function confirmDeactivate() {
-  if (confirm('确定要注销账号吗？此操作不可恢复！')) {
-    if (confirm('再次确认：注销账号将删除您的所有数据，确定继续吗？')) {
-      alert('账号注销功能需要联系管理员处理');
-    }
-  }
-}
-
 // 工具函数
 function getRoleClass(role) {
   const roleMap = {
@@ -470,10 +439,6 @@ onMounted(() => {
   font-size: 18px;
   border-bottom: 2px solid #007bff;
   padding-bottom: 8px;
-}
-
-.danger-section h3 {
-  border-bottom-color: #dc3545;
 }
 
 .profile-form,
@@ -617,20 +582,6 @@ onMounted(() => {
   margin: 0;
 }
 
-.danger-actions {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.danger-hint {
-  font-size: 12px;
-  color: #dc3545;
-  padding: 12px;
-  background: #f8d7da;
-  border-radius: 4px;
-}
-
 .form-actions {
   margin-top: 24px;
   padding-top: 16px;
@@ -676,28 +627,6 @@ onMounted(() => {
   background: #0056b3;
 }
 
-.btn-outline-primary {
-  background: transparent;
-  color: #007bff;
-  border: 1px solid #007bff;
-}
-
-.btn-outline-primary:hover:not(:disabled) {
-  background: #007bff;
-  color: white;
-}
-
-.btn-outline-danger {
-  background: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
-}
-
-.btn-outline-danger:hover:not(:disabled) {
-  background: #dc3545;
-  color: white;
-}
-
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -710,10 +639,6 @@ onMounted(() => {
   
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .danger-actions {
-    flex-direction: column;
   }
 }
 </style> 

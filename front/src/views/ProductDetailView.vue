@@ -88,12 +88,18 @@
                 </div>
               </div>
               <button 
+                v-if="!isUnverifiedUser"
                 @click="contactSeller" 
                 class="btn btn-secondary btn-sm"
                 :disabled="isOwnProduct"
               >
                 {{ isOwnProduct ? '这是您的商品' : '联系卖家' }}
               </button>
+              
+              <div v-if="isUnverifiedUser && !isOwnProduct" class="unverified-contact">
+                <span class="unverified-text">需要认证后查看</span>
+                <router-link to="/login" class="btn btn-warning btn-sm">去激活</router-link>
+              </div>
             </div>
           </div>
 
@@ -108,11 +114,20 @@
             </button>
             
             <button 
-              v-if="!isOwnProduct && product.status === '在售'"
+              v-if="!isOwnProduct && product.status === '在售' && !isUnverifiedUser"
               @click="contactSeller"
               class="btn btn-primary"
             >
               我想要
+            </button>
+            
+            <button 
+              v-if="!isOwnProduct && product.status === '在售' && isUnverifiedUser"
+              @click="showActivationTip"
+              class="btn btn-outline-secondary"
+              disabled
+            >
+              我想要 (需要认证)
             </button>
 
             <!-- 举报按钮 -->
@@ -140,7 +155,7 @@
         <h3>商品评论</h3>
         
         <!-- 发表评论 -->
-        <div v-if="userStore.userInfo && !isOwnProduct" class="comment-form">
+        <div v-if="userStore.userInfo && !isOwnProduct && !isUnverifiedUser" class="comment-form">
           <div class="form-group">
             <textarea
               v-model="newComment"
@@ -162,6 +177,10 @@
 
         <div v-else-if="!userStore.userInfo" class="login-prompt">
           <p>请 <router-link to="/login">登录</router-link> 后发表评论</p>
+        </div>
+        
+        <div v-else-if="isUnverifiedUser" class="unverified-prompt">
+          <p>⚠️ 完成账号激活后可发表评论 <router-link to="/login">去激活</router-link></p>
         </div>
 
         <!-- 评论列表 -->
@@ -218,6 +237,10 @@ const isOwnProduct = computed(() => {
   return userStore.userInfo?.id === product.value?.seller?.id;
 });
 
+const isUnverifiedUser = computed(() => {
+  return userStore.isLoggedIn && userStore.userInfo?.role === '未认证用户';
+});
+
 // 加载商品详情
 async function loadProduct() {
   try {
@@ -256,8 +279,17 @@ async function toggleFavorite() {
 
 // 联系卖家
 function contactSeller() {
+  if (isUnverifiedUser.value) {
+    showActivationTip();
+    return;
+  }
   // 这里可以打开私信对话框或跳转到私信页面
   alert(`联系卖家：${product.value.contact}`);
+}
+
+// 显示激活提示
+function showActivationTip() {
+  alert('完成账号激活后可查看联系方式和发表评论');
 }
 
 // 举报商品
@@ -604,15 +636,50 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.login-prompt {
+.login-prompt,
+.unverified-prompt {
   text-align: center;
   padding: 20px;
   color: #666;
 }
 
-.login-prompt a {
+.unverified-prompt {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+}
+
+.login-prompt a,
+.unverified-prompt a {
   color: #007bff;
   text-decoration: none;
+}
+
+.unverified-contact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff3cd;
+  border-radius: 4px;
+  border: 1px solid #ffeaa7;
+}
+
+.unverified-text {
+  color: #856404;
+  font-size: 12px;
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.btn-outline-secondary:hover:not(:disabled) {
+  background: #6c757d;
+  color: white;
 }
 
 .comments-list {

@@ -11,13 +11,19 @@
         <h3>快速登录 (开发模式)</h3>
         <div class="quick-login-buttons">
           <button @click="quickLoginAs(1)" class="btn btn-primary">
-            登录为: 技术宅 (普通用户)
+            登录为: 技术宅 (认证用户)
           </button>
           <button @click="quickLoginAs(2)" class="btn btn-success">
             登录为: 书虫 (管理员)
           </button>
+          <button @click="quickLoginAs(4)" class="btn btn-danger">
+            登录为: 超级管理员 (最高权限)
+          </button>
+          <button @click="quickLoginAs(5)" class="btn btn-secondary">
+            登录为: 待激活用户 (功能受限)
+          </button>
           <button @click="quickLoginAs(3)" class="btn btn-warning">
-            登录为: 运动达人 (普通用户)
+            登录为: 运动达人 (认证用户)
           </button>
         </div>
         <div class="divider">或者手动登录</div>
@@ -362,6 +368,16 @@ async function handleActivate() {
 .btn-warning {
   background: #ffc107;
   color: #212529;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
 }
 
 .divider {

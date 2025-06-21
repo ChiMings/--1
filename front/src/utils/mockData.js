@@ -29,6 +29,26 @@ export const mockUsers = [
     role: '认证用户',
     credit: 88,
     createdAt: '2023-09-20T14:20:00Z'
+  },
+  {
+    id: 4,
+    studentId: 'admin001',
+    name: '系统管理员',
+    nickname: '超级管理员',
+    contact: '13900000000',
+    role: '超级管理员',
+    credit: 100,
+    createdAt: '2023-09-01T08:00:00Z'
+  },
+  {
+    id: 5,
+    studentId: '20210999',
+    name: '新用户',
+    nickname: '待激活用户',
+    contact: '13800000999',
+    role: '未认证用户',
+    credit: 0,
+    createdAt: '2023-11-15T10:00:00Z'
   }
 ];
 
@@ -193,30 +213,94 @@ export const mockComments = [
   }
 ];
 
+// 模拟对话数据
+export const mockConversations = [
+  {
+    id: 1,
+    participants: [1, 2], // 参与者用户ID
+    lastMessage: {
+      id: 2,
+      content: '明天下午2点在图书馆门口可以吗？',
+      senderId: 1,
+      createdAt: '2023-11-02T11:30:00Z'
+    },
+    unreadCount: 0,
+    otherUser: {
+      id: 2,
+      nickname: '书虫',
+      role: '管理员',
+      credit: 95
+    },
+    createdAt: '2023-11-02T11:00:00Z'
+  },
+  {
+    id: 2,
+    participants: [1, 3],
+    lastMessage: {
+      id: 3,
+      content: '鼠标还有包装盒吗？',
+      senderId: 3,
+      createdAt: '2023-11-01T16:45:00Z'
+    },
+    unreadCount: 1,
+    otherUser: {
+      id: 3,
+      nickname: '运动达人',
+      role: '认证用户',
+      credit: 88
+    },
+    createdAt: '2023-11-01T16:45:00Z'
+  }
+];
+
 // 模拟私信数据
 export const mockMessages = [
   {
     id: 1,
-    fromUser: { id: 2, nickname: '书虫' },
-    toUser: { id: 1, nickname: '技术宅' },
+    conversationId: 1,
+    senderId: 2,
     content: '你好，请问鼠标什么时候可以交易？',
     createdAt: '2023-11-02T11:00:00Z',
-    isRead: false
+    isRead: true
   },
   {
     id: 2,
-    fromUser: { id: 1, nickname: '技术宅' },
-    toUser: { id: 2, nickname: '书虫' },
+    conversationId: 1,
+    senderId: 1,
     content: '明天下午2点在图书馆门口可以吗？',
     createdAt: '2023-11-02T11:30:00Z',
     isRead: true
   },
   {
     id: 3,
-    fromUser: { id: 3, nickname: '运动达人' },
-    toUser: { id: 1, nickname: '技术宅' },
+    conversationId: 2,
+    senderId: 3,
     content: '鼠标还有包装盒吗？',
     createdAt: '2023-11-01T16:45:00Z',
+    isRead: false
+  },
+  {
+    id: 4,
+    conversationId: 1,
+    senderId: 2,
+    content: '好的，到时候见！需要我带什么吗？',
+    createdAt: '2023-11-02T12:00:00Z',
+    isRead: true
+  },
+  {
+    id: 5,
+    conversationId: 1,
+    senderId: 1,
+    content: '带上学生卡就行，用来验证身份',
+    createdAt: '2023-11-02T12:15:00Z',
+    isRead: true
+  },
+  {
+    id: 6,
+    conversationId: 2,
+    senderId: 1,
+    content: '包装盒已经丢了，但是保修卡还在',
+    createdAt: '2023-11-02T09:30:00Z',
     isRead: false
   }
 ];
