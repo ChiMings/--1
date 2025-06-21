@@ -1,12 +1,85 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { login as apiLogin, activate as apiActivate, guestLogin as apiGuestLogin } from '@/api/auth';
-import { useRouter } from 'vue-router';
+import { mockUsers, getUserById } from '@/utils/mockData';
+import { config } from '@/utils/config';
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '');
   const userInfo = ref(null);
-  const router = useRouter();
+
+  // 模拟登录函数
+  function mockLogin(credentials) {
+    return new Promise((resolve, reject) => {
+      // 模拟网络延迟
+      setTimeout(() => {
+        let user = null;
+        
+        if (credentials.password) {
+          // 认证登录
+          user = mockUsers.find(u => u.studentId === credentials.studentId);
+          if (!user) {
+            reject(new Error('用户不存在'));
+            return;
+          }
+          // 这里可以加入密码验证，暂时跳过
+        } else if (credentials.name) {
+          // 游客登录
+          user = mockUsers.find(u => u.studentId === credentials.studentId && u.name === credentials.name);
+          if (!user) {
+            reject(new Error('用户信息不匹配'));
+            return;
+          }
+          // 创建游客用户副本
+          user = { ...user, role: '未认证用户' };
+        }
+        
+        if (user) {
+          const mockToken = `mock_token_${user.id}_${Date.now()}`;
+          resolve({
+            data: {
+              token: mockToken,
+              user: user
+            }
+          });
+        } else {
+          reject(new Error('登录失败'));
+        }
+      }, 500); // 模拟500ms延迟
+    });
+  }
+
+  // 模拟激活函数
+  function mockActivate(credentials) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const user = mockUsers.find(u => 
+          u.studentId === credentials.studentId && 
+          u.name === credentials.name
+        );
+        
+        if (!user) {
+          reject(new Error('用户信息不正确'));
+          return;
+        }
+        
+        // 创建激活后的用户
+        const activatedUser = {
+          ...user,
+          nickname: credentials.nickname,
+          role: '认证用户'
+        };
+        
+        const mockToken = `mock_token_${user.id}_${Date.now()}`;
+        resolve({
+          data: {
+            token: mockToken,
+            user: activatedUser
+          }
+        });
+      }, 800);
+    });
+  }
 
   async function handleLogin(loginFn, credentials) {
     const response = await loginFn(credentials);
@@ -14,23 +87,35 @@ export const useUserStore = defineStore('user', () => {
     token.value = data.token;
     userInfo.value = data.user;
     localStorage.setItem('token', data.token);
-    // 登录成功后跳转到首页
-    await router.push('/');
+    localStorage.setItem('userInfo', JSON.stringify(data.user));
+    return data;
   }
 
   // 认证登录
   async function login(credentials) {
-    await handleLogin(apiLogin, credentials);
+    if (config.useMockData) {
+      return await handleLogin(mockLogin, credentials);
+    } else {
+      return await handleLogin(apiLogin, credentials);
+    }
   }
 
   // 游客登录
   async function guestLogin(credentials) {
-    await handleLogin(apiGuestLogin, credentials);
+    if (config.useMockData) {
+      return await handleLogin(mockLogin, credentials);
+    } else {
+      return await handleLogin(apiGuestLogin, credentials);
+    }
   }
 
   // 账号激活
   async function activate(credentials) {
-    await handleLogin(apiActivate, credentials);
+    if (config.useMockData) {
+      return await handleLogin(mockActivate, credentials);
+    } else {
+      return await handleLogin(apiActivate, credentials);
+    }
   }
 
   // 退出登录
@@ -38,7 +123,37 @@ export const useUserStore = defineStore('user', () => {
     token.value = '';
     userInfo.value = null;
     localStorage.removeItem('token');
-    router.push('/login');
+    localStorage.removeItem('userInfo');
+  }
+
+  // 初始化时检查token有效性
+  function initializeFromStorage() {
+    const storedToken = localStorage.getItem('token');
+    const storedUserInfo = localStorage.getItem('userInfo');
+    
+    if (storedToken && storedUserInfo) {
+      token.value = storedToken;
+      try {
+        userInfo.value = JSON.parse(storedUserInfo);
+      } catch (error) {
+        console.error('Failed to parse stored user info:', error);
+        logout();
+      }
+    }
+  }
+
+  // 快速登录函数 (仅开发模式使用)
+  function quickLogin(userId = 1) {
+    if (!config.useMockData) return;
+    
+    const user = getUserById(userId);
+    if (user) {
+      const mockToken = `mock_token_${user.id}_${Date.now()}`;
+      token.value = mockToken;
+      userInfo.value = user;
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('userInfo', JSON.stringify(user));
+    }
   }
 
   return {
@@ -48,5 +163,7 @@ export const useUserStore = defineStore('user', () => {
     guestLogin,
     activate,
     logout,
+    initializeFromStorage,
+    quickLogin,
   };
 }); 
