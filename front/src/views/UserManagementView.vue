@@ -92,7 +92,6 @@
             <tr>
               <th>用户信息</th>
               <th>角色</th>
-              <th>信用分</th>
               <th>注册时间</th>
               <th>状态</th>
               <th>操作</th>
@@ -117,13 +116,6 @@
                 <span :class="['role-badge', getRoleClass(user.role)]">
                   {{ user.role }}
                 </span>
-              </td>
-              
-              <td>
-                <div class="credit-display">
-                  <span :class="getCreditClass(user.credit)">{{ user.credit || 0 }}</span>
-                  <div class="credit-stars">{{ getCreditStars(user.credit) }}</div>
-                </div>
               </td>
               
               <td class="date-cell">
@@ -544,16 +536,14 @@ function getCreditStars(credit) {
 
 function getUserStatus(user) {
   if (user.role === '未认证用户') return '未认证';
-  if (user.credit >= 90) return '优质用户';
-  if (user.credit >= 70) return '正常';
-  return '关注';
+  if (user.role === '管理员' || user.role === '超级管理员') return '管理员';
+  return '正常';
 }
 
 function getStatusClass(user) {
   if (user.role === '未认证用户') return 'status-unverified';
-  if (user.credit >= 90) return 'status-excellent';
-  if (user.credit >= 70) return 'status-normal';
-  return 'status-watch';
+  if (user.role === '管理员' || user.role === '超级管理员') return 'status-admin';
+  return 'status-normal';
 }
 
 function formatDate(dateString) {

@@ -42,7 +42,15 @@
             @click="selectConversation(conversation)"
           >
             <div class="user-avatar">
-              {{ conversation.otherUser.nickname?.charAt(0) || 'U' }}
+              <img 
+                v-if="conversation.otherUser.avatar" 
+                :src="conversation.otherUser.avatar" 
+                :alt="conversation.otherUser.nickname"
+                class="avatar-image"
+              />
+              <span v-else class="avatar-initial">
+                {{ conversation.otherUser.nickname?.charAt(0) || 'U' }}
+              </span>
             </div>
             
             <div class="conversation-info">
@@ -75,16 +83,21 @@
           <div class="conversation-header">
             <div class="user-info">
               <div class="user-avatar large">
-                {{ selectedConversation.otherUser.nickname?.charAt(0) || 'U' }}
+                <img 
+                  v-if="selectedConversation.otherUser.avatar" 
+                  :src="selectedConversation.otherUser.avatar" 
+                  :alt="selectedConversation.otherUser.nickname"
+                  class="avatar-image"
+                />
+                <span v-else class="avatar-initial">
+                  {{ selectedConversation.otherUser.nickname?.charAt(0) || 'U' }}
+                </span>
               </div>
               <div class="user-details">
                 <div class="user-name">{{ selectedConversation.otherUser.nickname }}</div>
                 <div class="user-status">
                   <span :class="getUserRoleClass(selectedConversation.otherUser.role)">
                     {{ selectedConversation.otherUser.role }}
-                  </span>
-                  <span class="user-credit">
-                    信用: {{ selectedConversation.otherUser.credit }}
                   </span>
                 </div>
               </div>
@@ -168,12 +181,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { mockConversations, mockMessages } from '@/utils/mockData';
+import { mockConversations, mockMessages, mockUsers } from '@/utils/mockData';
 import { config } from '@/utils/config';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 // 响应式数据
@@ -383,9 +397,54 @@ function formatMessageTime(timeString) {
 }
 
 // 组件挂载
-onMounted(() => {
-  loadConversations();
+onMounted(async () => {
+  await loadConversations();
+  
+  // 检查是否从商品详情页跳转过来，需要自动开启与卖家的对话
+  const { userId, nickname, productId, productName } = route.query;
+  if (userId && nickname) {
+    await startConversationWithUser(parseInt(userId), nickname, productId, productName);
+  }
 });
+
+// 开始与指定用户的对话
+async function startConversationWithUser(targetUserId, targetNickname, productId, productName) {
+  // 查找是否已有与该用户的对话
+  let conversation = conversations.value.find(conv => 
+    conv.otherUser.id === targetUserId
+  );
+  
+  // 如果没有对话，创建一个新的
+  if (!conversation) {
+    const targetUser = mockUsers.find(user => user.id === targetUserId) || {
+      id: targetUserId,
+      nickname: targetNickname,
+      role: '认证用户'
+    };
+    
+    conversation = {
+      id: Date.now(),
+      participants: [userStore.userInfo.id, targetUserId],
+      lastMessage: null,
+      unreadCount: 0,
+      otherUser: targetUser,
+      createdAt: new Date().toISOString()
+    };
+    
+    conversations.value.unshift(conversation);
+  }
+  
+  // 选中该对话
+  await selectConversation(conversation);
+  
+  // 如果是从商品页面跳转过来，自动填入商品相关的消息
+  if (productId && productName && !conversation.lastMessage) {
+    newMessage.value = `你好，我对你发布的商品"${productName}"很感兴趣，请问现在还有吗？`;
+  }
+  
+  // 清除URL参数
+  router.replace({ name: 'MyMessages' });
+}
 </script>
 
 <style scoped>
@@ -395,6 +454,7 @@ onMounted(() => {
   height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
+  min-height: 600px; /* 确保最小高度 */
 }
 
 .page-header {
@@ -420,6 +480,7 @@ onMounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   flex: 1;
   overflow: hidden;
+  min-height: 0; /* 确保可以收缩 */
 }
 
 .conversations-panel {
@@ -495,6 +556,23 @@ onMounted(() => {
 .conversation-item .user-avatar {
   width: 48px;
   height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  overflow: hidden;
+}
+
+.user-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-avatar .avatar-initial {
+  width: 100%;
+  height: 100%;
   background: #007bff;
   color: white;
   border-radius: 50%;
@@ -503,7 +581,6 @@ onMounted(() => {
   justify-content: center;
   font-weight: bold;
   font-size: 18px;
-  margin-right: 12px;
 }
 
 .conversation-info {
@@ -584,6 +661,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0; /* 确保可以收缩 */
 }
 
 .conversation-header {
@@ -592,6 +670,7 @@ onMounted(() => {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid #eee;
+  flex-shrink: 0; /* 防止头部区域被压缩 */
 }
 
 .user-info {
@@ -603,7 +682,6 @@ onMounted(() => {
 .user-avatar.large {
   width: 48px;
   height: 48px;
-  background: #007bff;
   color: white;
   border-radius: 50%;
   display: flex;
@@ -639,6 +717,8 @@ onMounted(() => {
   overflow-y: auto;
   padding: 16px 20px;
   background: #f8f9fa;
+  min-height: 0; /* 确保可以收缩 */
+  max-height: 100%; /* 限制最大高度 */
 }
 
 .loading {
@@ -708,6 +788,7 @@ onMounted(() => {
   border-top: 1px solid #eee;
   padding: 16px 20px;
   background: white;
+  flex-shrink: 0; /* 防止输入区域被压缩 */
 }
 
 .input-container {
@@ -723,6 +804,8 @@ onMounted(() => {
   border-radius: 8px;
   resize: none;
   font-family: inherit;
+  max-height: 120px; /* 限制输入框最大高度 */
+  overflow-y: auto; /* 内容过多时滚动 */
   font-size: 14px;
   line-height: 1.4;
   box-sizing: border-box;
@@ -795,30 +878,54 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .messages-page {
+    height: calc(100vh - 80px); /* 移动端减少顶部间距 */
+    padding: 0 8px;
+  }
+  
   .messages-container {
     flex-direction: column;
-    height: auto;
+    height: 100%;
   }
   
   .conversations-panel {
     width: 100%;
     max-height: 40vh;
+    min-height: 200px; /* 确保对话列表有足够高度 */
+  }
+  
+  .messages-panel {
+    min-height: 0;
+    flex: 1;
   }
   
   .conversation-header {
     flex-direction: column;
     gap: 12px;
     align-items: flex-start;
+    padding: 12px 16px;
+  }
+  
+  .messages-list {
+    padding: 12px 16px;
   }
   
   .message-content {
     max-width: 85%;
   }
   
+  .message-input-area {
+    padding: 12px 16px;
+  }
+  
   .input-actions {
     flex-direction: column;
     gap: 8px;
     align-items: stretch;
+  }
+  
+  .input-hint {
+    text-align: center;
   }
 }
 </style> 

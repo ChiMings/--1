@@ -3,9 +3,10 @@ import { config } from '@/utils/config';
 import { 
   mockProducts, 
   mockCategories, 
+  mockComments,
   searchProducts, 
   paginateArray, 
-  getProductsByUserId 
+  getProductsByUserId
 } from '@/utils/mockData';
 
 // 模拟API响应
@@ -140,19 +141,20 @@ export function updateProduct(productId, data) {
 /**
  * 更新商品状态
  * @param {number} productId 商品ID
- * @param {string} status 商品状态
+ * @param {string} status 新状态
  */
 export function updateProductStatus(productId, status) {
   if (config.useMockData) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       setTimeout(() => {
-        const index = mockProducts.findIndex(p => p.id === parseInt(productId));
-        if (index !== -1) {
-          mockProducts[index].status = status;
-          resolve({ data: mockProducts[index] });
-        } else {
-          reject(new Error('商品不存在'));
+        const product = mockProducts.find(p => p.id === productId);
+        if (product) {
+          product.status = status;
+          if (status === '已售出') {
+            product.soldAt = new Date().toISOString();
+          }
         }
+        resolve({ data: product });
       }, 300);
     });
   }
@@ -241,4 +243,41 @@ export function getCategories() {
     url: '/categories',
     method: 'get',
   });
-} 
+}
+
+
+
+/**
+ * 删除评论
+ * @param {number} commentId 评论ID
+ */
+export function deleteComment(commentId) {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 从全局评论数组中删除
+        if (window.mockCommentsGlobal) {
+          const index = window.mockCommentsGlobal.findIndex(c => c.id === commentId);
+          if (index !== -1) {
+            window.mockCommentsGlobal.splice(index, 1);
+          }
+        }
+        
+        // 从mockData中删除
+        const commentIndex = mockComments.findIndex(c => c.id === commentId);
+        if (commentIndex !== -1) {
+          mockComments.splice(commentIndex, 1);
+        }
+        
+        resolve({ data: { message: '评论删除成功' } });
+      }, 300);
+    });
+  }
+  
+  return request({
+    url: `/comments/${commentId}/delete`,
+    method: 'post',
+  });
+}
+
+ 

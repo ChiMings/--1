@@ -8,14 +8,21 @@
       
       <nav class="nav-links">
         <router-link to="/" class="nav-link">首页</router-link>
-        <router-link to="/categories" class="nav-link">分类</router-link>
-        <router-link to="/about" class="nav-link">关于</router-link>
+        <router-link to="/notices" class="nav-link">公告</router-link>
         
         <template v-if="userStore.token">
           <!-- 用户菜单 -->
           <div class="user-menu" @click="toggleUserMenu" ref="userMenuRef">
             <div class="user-info">
-              <span class="user-avatar">{{ userAvatar }}</span>
+              <div class="user-avatar">
+                <img 
+                  v-if="userStore.userInfo?.avatar" 
+                  :src="userStore.userInfo.avatar" 
+                  :alt="userName"
+                  class="avatar-image"
+                />
+                <span v-else class="avatar-initial">{{ userAvatar }}</span>
+              </div>
               <span class="user-name">{{ userName }}</span>
               <span class="dropdown-arrow">▼</span>
             </div>
@@ -25,7 +32,6 @@
                 <div class="user-info">
                   <div class="user-meta">
                     <span class="user-role">{{ userStore.userInfo?.role }}</span>
-                    <span class="user-credit">信用: {{ userStore.userInfo?.credit }}</span>
                   </div>
                 </div>
               </div>
@@ -58,6 +64,7 @@
                   系统通知
                   <span v-if="unreadNotifications > 0" class="badge">{{ unreadNotifications }}</span>
                 </router-link>
+
               </div>
 
               <div class="dropdown-section">
@@ -116,12 +123,8 @@
         首页
       </router-link>
       
-      <router-link to="/categories" class="mobile-nav-link" @click="closeMobileMenu">
-        分类
-      </router-link>
-      
-      <router-link to="/about" class="mobile-nav-link" @click="closeMobileMenu">
-        关于
+      <router-link to="/notices" class="mobile-nav-link" @click="closeMobileMenu">
+        公告
       </router-link>
       
       <template v-if="userStore.token">
@@ -134,6 +137,7 @@
         <router-link to="/user/messages" class="mobile-nav-link" @click="closeMobileMenu">
           私信消息
         </router-link>
+
         <router-link to="/user/profile" class="mobile-nav-link" @click="closeMobileMenu">
           个人设置
         </router-link>
@@ -326,6 +330,21 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initial {
+  width: 100%;
+  height: 100%;
   background: #007bff;
   color: white;
   display: flex;

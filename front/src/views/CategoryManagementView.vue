@@ -1,3 +1,1048 @@
 <template>
-  <h1>分类管理</h1>
-</template> 
+  <div class="category-management">
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <h1>🗂️ 分类管理</h1>
+      <p>管理商品分类，组织平台商品结构</p>
+    </div>
+
+    <!-- 操作栏 -->
+    <div class="action-bar">
+      <button @click="showCreateCategory" class="btn btn-primary">
+        ➕ 添加分类
+      </button>
+      <div class="search-box">
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="搜索分类名称..."
+          class="search-input"
+        />
+        <span class="search-icon">🔍</span>
+      </div>
+    </div>
+
+    <!-- 分类统计 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📁</div>
+        <div class="stat-info">
+          <div class="stat-number">{{ categories.length }}</div>
+          <div class="stat-label">总分类数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-info">
+          <div class="stat-number">{{ activeCategories.length }}</div>
+          <div class="stat-label">启用分类</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <div class="stat-info">
+          <div class="stat-number">{{ totalProducts }}</div>
+          <div class="stat-label">商品总数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-info">
+          <div class="stat-number">{{ mostPopularCategory?.name || '暂无' }}</div>
+          <div class="stat-label">热门分类</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分类列表 -->
+    <div class="categories-container">
+      <div v-if="loading" class="loading">
+        <p>📂 加载分类中...</p>
+      </div>
+
+      <div v-else-if="filteredCategories.length === 0" class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>{{ searchQuery ? '未找到匹配的分类' : '暂无分类' }}</h3>
+        <p>{{ searchQuery ? '尝试调整搜索条件' : '点击"添加分类"创建第一个分类' }}</p>
+      </div>
+
+      <div v-else class="categories-grid">
+        <div 
+          v-for="category in filteredCategories" 
+          :key="category.id"
+          :class="['category-card', { 'category-disabled': !category.isActive }]"
+        >
+          <div class="category-header">
+            <div class="category-icon">{{ category.icon }}</div>
+            <div class="category-info">
+              <h3 class="category-name">{{ category.name }}</h3>
+              <p class="category-desc">{{ category.description }}</p>
+            </div>
+            <div class="category-status">
+              <span v-if="category.isDefault" class="status-badge status-default">
+                🏠 默认分类
+              </span>
+              <span :class="['status-badge', category.isActive ? 'status-active' : 'status-inactive']">
+                {{ category.isActive ? '启用' : '禁用' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="category-stats">
+            <div class="stat-item">
+              <span class="stat-label">商品数量:</span>
+              <span class="stat-value">{{ category.productCount || 0 }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">创建时间:</span>
+              <span class="stat-value">{{ formatDate(category.createdAt) }}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">最后更新:</span>
+              <span class="stat-value">{{ formatDate(category.updatedAt) }}</span>
+            </div>
+          </div>
+
+          <div class="category-actions">
+            <button @click="editCategory(category)" class="btn btn-sm btn-primary">
+              ✏️ 编辑
+            </button>
+            <button 
+              @click="toggleCategoryStatus(category)" 
+              :class="['btn', 'btn-sm', category.isActive ? 'btn-warning' : 'btn-success']"
+            >
+              {{ category.isActive ? '🚫 禁用' : '✅ 启用' }}
+            </button>
+            <button 
+              @click="deleteCategory(category)" 
+              class="btn btn-sm btn-danger"
+              :disabled="category.isDefault"
+              :title="category.isDefault ? '默认分类不能删除' : (category.productCount > 0 ? '删除后商品将移动到默认分类' : '删除分类')"
+            >
+              🗑️ 删除
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加/编辑分类弹窗 -->
+    <div v-if="showCategoryDialog" class="modal-overlay" @click="closeCategoryDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>{{ isEditing ? '编辑分类' : '添加分类' }}</h3>
+          <button @click="closeCategoryDialog" class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <form @submit.prevent="submitCategory">
+            <div class="form-group">
+              <label>分类名称 <span class="required">*</span></label>
+              <input 
+                v-model="categoryForm.name" 
+                type="text" 
+                placeholder="请输入分类名称"
+                required
+              />
+            </div>
+            
+            <div class="form-group">
+              <label>分类图标</label>
+              <div class="icon-selector">
+                <div 
+                  v-for="icon in iconOptions" 
+                  :key="icon"
+                  :class="['icon-option', { 'icon-selected': categoryForm.icon === icon }]"
+                  @click="categoryForm.icon = icon"
+                >
+                  {{ icon }}
+                </div>
+              </div>
+              <small class="form-hint">选择一个代表性图标</small>
+            </div>
+            
+            <div class="form-group">
+              <label>分类描述</label>
+              <textarea 
+                v-model="categoryForm.description" 
+                rows="3"
+                placeholder="请输入分类描述（可选）"
+              ></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>排序权重</label>
+              <input 
+                v-model.number="categoryForm.sortOrder" 
+                type="number" 
+                min="0"
+                placeholder="数值越大越靠前，默认为0"
+              />
+              <small class="form-hint">用于控制分类在列表中的显示顺序</small>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input 
+                  v-model="categoryForm.isActive" 
+                  type="checkbox"
+                  class="checkbox-input"
+                  :disabled="editingCategory?.isDefault"
+                />
+                <span class="checkbox-text">启用分类</span>
+              </label>
+              <small v-if="editingCategory?.isDefault" class="form-hint">
+                默认分类必须保持启用状态
+              </small>
+            </div>
+          </form>
+        </div>
+        
+        <div class="modal-footer">
+          <button @click="closeCategoryDialog" class="btn btn-outline">取消</button>
+          <button 
+            @click="submitCategory"
+            :disabled="!categoryForm.name.trim()"
+            class="btn btn-primary"
+          >
+            {{ isEditing ? '更新分类' : '添加分类' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive, onMounted } from 'vue';
+import { useUserStore } from '@/store/user';
+
+const userStore = useUserStore();
+
+// 响应式数据
+const loading = ref(false);
+const categories = ref([]);
+const searchQuery = ref('');
+const showCategoryDialog = ref(false);
+const isEditing = ref(false);
+const editingCategory = ref(null);
+
+// 表单数据
+const categoryForm = reactive({
+  name: '',
+  icon: '📁',
+  description: '',
+  sortOrder: 0,
+  isActive: true
+});
+
+// 图标选项
+const iconOptions = [
+  '📱', '💻', '📚', '👕', '👟', '🎮', '🏀', '🎵', 
+  '🎨', '🔧', '⚽', '🏠', '🚗', '🍔', '📷', '💄',
+  '🎸', '🕶️', '⌚', '🧸', '🎂', '🌱', '✏️', '📁'
+];
+
+// 计算属性
+const filteredCategories = computed(() => {
+  if (!searchQuery.value) return categories.value;
+  
+  const query = searchQuery.value.toLowerCase();
+  return categories.value.filter(category => 
+    category.name.toLowerCase().includes(query) ||
+    category.description.toLowerCase().includes(query)
+  );
+});
+
+const activeCategories = computed(() => {
+  return categories.value.filter(category => category.isActive);
+});
+
+const totalProducts = computed(() => {
+  return categories.value.reduce((total, category) => total + (category.productCount || 0), 0);
+});
+
+const mostPopularCategory = computed(() => {
+  return categories.value
+    .filter(category => category.isActive)
+    .sort((a, b) => (b.productCount || 0) - (a.productCount || 0))[0];
+});
+
+// 模拟分类数据
+const mockCategories = [
+  {
+    id: 0,
+    name: '其他',
+    icon: '📦',
+    description: '未分类或其他类型商品',
+    isActive: true,
+    productCount: 0,
+    sortOrder: 0,
+    isDefault: true,
+    createdAt: '2023-09-01T08:00:00Z',
+    updatedAt: '2023-09-01T08:00:00Z'
+  },
+  {
+    id: 1,
+    name: '数码产品',
+    icon: '📱',
+    description: '手机、电脑、平板等数码设备',
+    isActive: true,
+    productCount: 45,
+    sortOrder: 10,
+    createdAt: '2023-10-01T10:00:00Z',
+    updatedAt: '2023-11-01T10:00:00Z'
+  },
+  {
+    id: 2,
+    name: '学习用品',
+    icon: '📚',
+    description: '教材、文具、学习资料等',
+    isActive: true,
+    productCount: 32,
+    sortOrder: 9,
+    createdAt: '2023-10-01T10:00:00Z',
+    updatedAt: '2023-10-20T10:00:00Z'
+  },
+  {
+    id: 3,
+    name: '服装配饰',
+    icon: '👕',
+    description: '服装、鞋帽、饰品等',
+    isActive: true,
+    productCount: 28,
+    sortOrder: 8,
+    createdAt: '2023-10-01T10:00:00Z',
+    updatedAt: '2023-10-15T10:00:00Z'
+  },
+  {
+    id: 4,
+    name: '体育用品',
+    icon: '🏀',
+    description: '运动器材、健身用品等',
+    isActive: true,
+    productCount: 18,
+    sortOrder: 7,
+    createdAt: '2023-10-01T10:00:00Z',
+    updatedAt: '2023-10-10T10:00:00Z'
+  },
+  {
+    id: 5,
+    name: '生活用品',
+    icon: '🏠',
+    description: '日常生活所需物品',
+    isActive: true,
+    productCount: 23,
+    sortOrder: 6,
+    createdAt: '2023-10-01T10:00:00Z',
+    updatedAt: '2023-10-25T10:00:00Z'
+  },
+  {
+    id: 6,
+    name: '娱乐休闲',
+    icon: '🎮',
+    description: '游戏、音乐、娱乐产品',
+    isActive: false,
+    productCount: 8,
+    sortOrder: 5,
+    createdAt: '2023-10-01T10:00:00Z',
+    updatedAt: '2023-10-05T10:00:00Z'
+  }
+];
+
+// 方法
+async function loadCategories() {
+  try {
+    loading.value = true;
+    // 模拟API调用
+    await new Promise(resolve => setTimeout(resolve, 800));
+    categories.value = mockCategories.sort((a, b) => b.sortOrder - a.sortOrder);
+  } catch (error) {
+    console.error('Failed to load categories:', error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function showCreateCategory() {
+  isEditing.value = false;
+  editingCategory.value = null;
+  resetForm();
+  showCategoryDialog.value = true;
+}
+
+function editCategory(category) {
+  isEditing.value = true;
+  editingCategory.value = category;
+  
+  // 填充表单
+  categoryForm.name = category.name;
+  categoryForm.icon = category.icon;
+  categoryForm.description = category.description;
+  categoryForm.sortOrder = category.sortOrder;
+  categoryForm.isActive = category.isActive;
+  
+  showCategoryDialog.value = true;
+}
+
+function closeCategoryDialog() {
+  showCategoryDialog.value = false;
+  resetForm();
+}
+
+function resetForm() {
+  categoryForm.name = '';
+  categoryForm.icon = '📁';
+  categoryForm.description = '';
+  categoryForm.sortOrder = 0;
+  categoryForm.isActive = true;
+}
+
+function submitCategory() {
+  if (!categoryForm.name.trim()) return;
+  
+  const categoryData = {
+    name: categoryForm.name.trim(),
+    icon: categoryForm.icon,
+    description: categoryForm.description.trim(),
+    sortOrder: categoryForm.sortOrder || 0,
+    isActive: categoryForm.isActive,
+    updatedAt: new Date().toISOString()
+  };
+  
+  if (isEditing.value && editingCategory.value) {
+    // 更新分类
+    const index = categories.value.findIndex(c => c.id === editingCategory.value.id);
+    if (index !== -1) {
+      categories.value[index] = { ...categories.value[index], ...categoryData };
+    }
+    alert('分类更新成功！');
+  } else {
+    // 创建新分类
+    const newCategory = {
+      id: Date.now(),
+      productCount: 0,
+      createdAt: new Date().toISOString(),
+      ...categoryData
+    };
+    categories.value.unshift(newCategory);
+    alert('分类添加成功！');
+  }
+  
+  // 重新排序
+  categories.value.sort((a, b) => b.sortOrder - a.sortOrder);
+  closeCategoryDialog();
+}
+
+function toggleCategoryStatus(category) {
+  category.isActive = !category.isActive;
+  category.updatedAt = new Date().toISOString();
+  alert(`分类已${category.isActive ? '启用' : '禁用'}`);
+}
+
+function deleteCategory(category) {
+  // 防止删除默认分类
+  if (category.isDefault) {
+    alert('默认分类不能删除！');
+    return;
+  }
+  
+  // 获取默认分类
+  const defaultCategory = categories.value.find(c => c.isDefault);
+  if (!defaultCategory) {
+    alert('错误：找不到默认分类！');
+    return;
+  }
+  
+  // 构建确认消息
+  let confirmMessage = `确定要删除分类"${category.name}"吗？`;
+  if (category.productCount > 0) {
+    confirmMessage += `\n\n该分类下有 ${category.productCount} 个商品，删除后这些商品将自动移动到"${defaultCategory.name}"分类。`;
+  }
+  
+  if (confirm(confirmMessage)) {
+    // 如果有商品，先迁移到默认分类
+    if (category.productCount > 0) {
+      // 这里应该调用API来迁移商品，现在模拟更新商品数量
+      defaultCategory.productCount += category.productCount;
+      
+      // 在实际项目中，这里应该调用后端API：
+      // await moveProductsToDefaultCategory(category.id, defaultCategory.id);
+      
+      console.log(`已将 ${category.productCount} 个商品从"${category.name}"迁移到"${defaultCategory.name}"`);
+    }
+    
+    // 删除分类
+    const index = categories.value.findIndex(c => c.id === category.id);
+    if (index !== -1) {
+      categories.value.splice(index, 1);
+      
+      let successMessage = '分类删除成功！';
+      if (category.productCount > 0) {
+        successMessage += `\n${category.productCount} 个商品已自动移动到"${defaultCategory.name}"分类。`;
+      }
+      alert(successMessage);
+    }
+  }
+}
+
+function formatDate(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
+// 组件挂载
+onMounted(() => {
+  loadCategories();
+});
+</script>
+
+<style scoped>
+.category-management {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 2rem;
+}
+
+.page-header p {
+  margin: 0;
+  color: #666;
+  font-size: 1rem;
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.search-box {
+  position: relative;
+  max-width: 300px;
+  flex: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.search-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-icon {
+  font-size: 2rem;
+  width: 50px;
+  height: 50px;
+  background: #f8f9fa;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.categories-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.loading {
+  padding: 60px;
+  text-align: center;
+  color: #666;
+}
+
+.empty-state {
+  padding: 60px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  margin: 0 0 8px 0;
+  color: #333;
+}
+
+.empty-state p {
+  margin: 0;
+  color: #666;
+}
+
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.category-card {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s;
+  background: white;
+}
+
+.category-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.category-disabled {
+  opacity: 0.6;
+  background: #f8f9fa;
+}
+
+.category-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.category-icon {
+  font-size: 2rem;
+  width: 50px;
+  height: 50px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.category-info {
+  flex: 1;
+}
+
+.category-name {
+  margin: 0 0 4px 0;
+  font-size: 1.2rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.category-desc {
+  margin: 0;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.category-status {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-inactive {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-default {
+  background: #e3f2fd;
+  color: #1976d2;
+  margin-bottom: 4px;
+}
+
+.category-stats {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+}
+
+.stat-item:last-child {
+  margin-bottom: 0;
+}
+
+.stat-label {
+  color: #666;
+}
+
+.stat-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.category-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 按钮样式 */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #1e7e34;
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover {
+  background: #e0a800;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.btn-outline {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.btn-outline:hover {
+  background: #6c757d;
+  color: white;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.required {
+  color: #dc3545;
+}
+
+/* 图标选择器 */
+.icon-selector {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.icon-option {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-option:hover {
+  border-color: #007bff;
+  background: #f8f9fa;
+}
+
+.icon-selected {
+  border-color: #007bff;
+  background: #e3f2fd;
+}
+
+/* 复选框样式 */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f8f9fa;
+  transition: all 0.2s;
+}
+
+.checkbox-label:hover {
+  background: #e9ecef;
+  border-color: #007bff;
+}
+
+.checkbox-input {
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.checkbox-text {
+  font-weight: 500;
+  color: #333;
+}
+
+@media (max-width: 768px) {
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-box {
+    max-width: none;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .categories-grid {
+    grid-template-columns: 1fr;
+    padding: 15px;
+  }
+  
+  .category-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .category-status {
+    align-self: flex-start;
+  }
+  
+  .icon-selector {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  
+  .modal-content {
+    width: 95%;
+    margin: 20px;
+  }
+}
+</style> 

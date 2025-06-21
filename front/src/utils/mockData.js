@@ -54,12 +54,70 @@ export const mockUsers = [
 
 // 模拟商品分类
 export const mockCategories = [
-  { id: 1, name: '电子产品' },
-  { id: 2, name: '书籍教材' },
-  { id: 3, name: '生活用品' },
-  { id: 4, name: '服装饰品' },
-  { id: 5, name: '体育用品' },
-  { id: 6, name: '其他' }
+  { 
+    id: 0, 
+    name: '其他',
+    icon: '📦',
+    description: '未分类或其他类型商品',
+    isActive: true,
+    productCount: 0,
+    sortOrder: 0,
+    isDefault: true  // 标记为默认分类
+  },
+  { 
+    id: 1, 
+    name: '数码产品',
+    icon: '📱',
+    description: '手机、电脑、平板等数码设备',
+    isActive: true,
+    productCount: 45,
+    sortOrder: 10
+  },
+  { 
+    id: 2, 
+    name: '学习用品',
+    icon: '📚',
+    description: '教材、文具、学习资料等',
+    isActive: true,
+    productCount: 32,
+    sortOrder: 9
+  },
+  { 
+    id: 3, 
+    name: '生活用品',
+    icon: '🏠',
+    description: '日常生活所需物品',
+    isActive: true,
+    productCount: 23,
+    sortOrder: 6
+  },
+  { 
+    id: 4, 
+    name: '服装配饰',
+    icon: '👕',
+    description: '服装、鞋帽、饰品等',
+    isActive: true,
+    productCount: 28,
+    sortOrder: 8
+  },
+  { 
+    id: 5, 
+    name: '体育用品',
+    icon: '🏀',
+    description: '运动器材、健身用品等',
+    isActive: true,
+    productCount: 18,
+    sortOrder: 7
+  },
+  { 
+    id: 6, 
+    name: '娱乐休闲',
+    icon: '🎮',
+    description: '游戏、音乐、娱乐产品',
+    isActive: false,
+    productCount: 8,
+    sortOrder: 5
+  }
 ];
 
 // 模拟商品数据
@@ -70,7 +128,7 @@ export const mockProducts = [
     description: '用了一年，手感很好，换新的了故出。原价499，现在只要200。功能完好，无损坏。适合办公和设计使用，人体工学设计，长时间使用不累手。',
     price: 200,
     categoryId: 1,
-    category: { id: 1, name: '电子产品' },
+    category: { id: 1, name: '数码产品' },
     contact: 'QQ: 123456789',
     status: '在售',
     images: [
@@ -91,7 +149,7 @@ export const mockProducts = [
     description: '同济大学版高等数学教材，几乎全新，只在期末复习时翻过几页。原价68元，现价30元。适合理工科学生使用。',
     price: 30,
     categoryId: 2,
-    category: { id: 2, name: '书籍教材' },
+    category: { id: 2, name: '学习用品' },
     contact: '微信: book_lover',
     status: '在售',
     images: [
@@ -111,7 +169,7 @@ export const mockProducts = [
     description: '42码男款运动鞋，八成新，平时很少穿。原价899元，现价300元。适合跑步和日常穿搭。鞋底弹性很好，穿着舒适。',
     price: 300,
     categoryId: 4,
-    category: { id: 4, name: '服装饰品' },
+    category: { id: 4, name: '服装配饰' },
     contact: '手机: 13800138003',
     status: '在售',
     images: [
@@ -132,7 +190,7 @@ export const mockProducts = [
     description: 'M1芯片，8G内存，256G存储。使用一年半，成色很好，无磕碰。原价9999元，现价6500元。配原装充电器和包装盒。',
     price: 6500,
     categoryId: 1,
-    category: { id: 1, name: '电子产品' },
+    category: { id: 1, name: '数码产品' },
     contact: 'QQ: 987654321',
     status: '已售出',
     images: [
@@ -348,11 +406,12 @@ export const mockStats = {
     { date: '2023-11-05', count: 1250 }
   ],
   productsByCategory: [
-    { category: '电子产品', count: 156 },
-    { category: '书籍教材', count: 124 },
+    { category: '数码产品', count: 156 },
+    { category: '学习用品', count: 124 },
     { category: '生活用品', count: 89 },
-    { category: '服装饰品', count: 67 },
-    { category: '体育用品', count: 20 }
+    { category: '服装配饰', count: 67 },
+    { category: '体育用品', count: 20 },
+    { category: '其他', count: 0 }
   ]
 };
 
@@ -411,4 +470,6 @@ export function paginateArray(array, page = 1, limit = 20) {
     limit: parseInt(limit),
     totalPages: Math.ceil(array.length / limit)
   };
-} 
+}
+
+ 

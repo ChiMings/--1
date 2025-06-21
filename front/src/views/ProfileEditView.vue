@@ -9,6 +9,56 @@
     <div class="info-section">
       <h3>基本信息</h3>
       <form @submit.prevent="updateProfile" class="profile-form">
+        <!-- 头像上传 -->
+        <div class="form-group">
+          <label>头像</label>
+          <div class="avatar-upload-container">
+            <div class="current-avatar">
+              <img 
+                v-if="userInfo?.avatar" 
+                :src="userInfo.avatar" 
+                :alt="userInfo.nickname"
+                class="avatar-preview"
+              />
+              <div 
+                v-else 
+                class="default-avatar"
+              >
+                {{ userInfo?.nickname?.charAt(0) || 'U' }}
+              </div>
+            </div>
+            
+            <div class="avatar-upload-controls">
+              <input 
+                ref="avatarInput"
+                type="file" 
+                accept="image/*"
+                @change="handleAvatarUpload"
+                class="hidden-input"
+              />
+              <button 
+                type="button"
+                @click="$refs.avatarInput.click()"
+                class="btn btn-outline-primary btn-sm"
+              >
+                {{ userInfo?.avatar ? '更换头像' : '上传头像' }}
+              </button>
+              <button 
+                v-if="userInfo?.avatar"
+                type="button"
+                @click="removeAvatar"
+                class="btn btn-outline-danger btn-sm"
+              >
+                删除头像
+              </button>
+            </div>
+            
+            <div class="avatar-upload-hint">
+              支持 JPG、PNG 格式，文件大小不超过 2MB
+            </div>
+          </div>
+        </div>
+
         <div class="form-group">
           <label>学工号</label>
           <input 
@@ -72,20 +122,7 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label>信用等级</label>
-          <div class="credit-display">
-            <div class="credit-score">
-              <span :class="getCreditClass(userInfo?.credit)">
-                {{ userInfo?.credit || 0 }}
-              </span>
-              <span class="credit-text">{{ getCreditText(userInfo?.credit) }}</span>
-            </div>
-            <div class="credit-hint">
-              良好的交易记录有助于提升信用等级
-            </div>
-          </div>
-        </div>
+
 
         <div class="form-actions">
           <button 
@@ -244,6 +281,7 @@ const successMessage = ref('');
 const profileForm = reactive({
   nickname: '',
   contact: '',
+  avatar: ''
 });
 
 const passwordForm = reactive({
@@ -281,6 +319,7 @@ function initializeForm() {
   if (userInfo.value) {
     profileForm.nickname = userInfo.value.nickname || '';
     profileForm.contact = userInfo.value.contact || '';
+    profileForm.avatar = userInfo.value.avatar || '';
   }
 }
 
@@ -369,6 +408,70 @@ async function updatePrivacySettings() {
   } catch (err) {
     console.error('Failed to update privacy settings:', err);
   }
+}
+
+// 处理头像上传
+async function handleAvatarUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    error.value = '请选择图片文件'
+    return
+  }
+  
+  // 验证文件大小（2MB）
+  if (file.size > 2 * 1024 * 1024) {
+    error.value = '图片文件大小不能超过 2MB'
+    return
+  }
+  
+  try {
+    error.value = ''
+    
+    // 使用 FileReader 预览图片
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      // 更新用户头像
+      profileForm.avatar = e.target.result
+      
+      // 立即更新到用户信息中
+      if (userStore.userInfo) {
+        userStore.userInfo.avatar = e.target.result
+        // 保存到 localStorage
+        localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+      }
+      
+      successMessage.value = '头像更新成功'
+      setTimeout(() => {
+        successMessage.value = ''
+      }, 3000)
+    }
+    
+    reader.readAsDataURL(file)
+    
+  } catch (err) {
+    console.error('头像上传失败:', err)
+    error.value = '头像上传失败，请重试'
+  }
+}
+
+// 删除头像
+function removeAvatar() {
+  if (!confirm('确定要删除头像吗？')) return
+  
+  profileForm.avatar = ''
+  
+  if (userStore.userInfo) {
+    userStore.userInfo.avatar = ''
+    localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+  }
+  
+  successMessage.value = '头像删除成功'
+  setTimeout(() => {
+    successMessage.value = ''
+  }, 3000)
 }
 
 // 工具函数
@@ -640,5 +743,84 @@ onMounted(() => {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+.avatar-upload-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.current-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.avatar-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.default-avatar {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.avatar-upload-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.avatar-upload-hint {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-outline-primary {
+  border: 1px solid #007bff;
+  color: #007bff;
+  background: white;
+}
+
+.btn-outline-primary:hover {
+  background: #007bff;
+  color: white;
+}
+
+.btn-outline-danger {
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  background: white;
+}
+
+.btn-outline-danger:hover {
+  background: #dc3545;
+  color: white;
 }
 </style> 

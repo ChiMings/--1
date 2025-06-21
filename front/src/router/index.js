@@ -10,6 +10,7 @@ import LoginView from '../views/LoginView.vue';
 import ProductDetailView from '../views/ProductDetailView.vue';
 import UserProfileView from '../views/UserProfileView.vue';
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
+import NoticesView from '../views/NoticesView.vue';
 
 // User Center views
 import MyProductsView from '../views/MyProductsView.vue';
@@ -17,6 +18,7 @@ import ProductEditView from '../views/ProductEditView.vue';
 import MyFavoritesView from '../views/MyFavoritesView.vue';
 import MyMessagesView from '../views/MyMessagesView.vue';
 import MyNotificationsView from '../views/MyNotificationsView.vue';
+
 import ProfileEditView from '../views/ProfileEditView.vue';
 
 // Admin views
@@ -53,6 +55,11 @@ const routes = [
     path: '/profile/:userId',
     name: 'UserProfile',
     component: UserProfileView,
+  },
+  {
+    path: '/notices',
+    name: 'Notices',
+    component: NoticesView,
   },
 
   // --- 个人中心 (需要认证) ---
@@ -96,6 +103,7 @@ const routes = [
         name: 'MyNotifications',
         component: MyNotificationsView,
       },
+
     ],
   },
 

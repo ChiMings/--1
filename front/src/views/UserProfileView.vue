@@ -14,7 +14,15 @@
       <!-- 用户基本信息 -->
       <div class="user-header">
         <div class="user-avatar">
-          {{ user.nickname?.charAt(0) || 'U' }}
+          <img 
+            v-if="user.avatar" 
+            :src="user.avatar" 
+            :alt="user.nickname"
+            class="avatar-image"
+          />
+          <span v-else class="avatar-initial">
+            {{ user.nickname?.charAt(0) || 'U' }}
+          </span>
         </div>
         
         <div class="user-info">
@@ -26,10 +34,6 @@
           </div>
           
           <div class="user-stats">
-            <div class="stat-item">
-              <span class="count">{{ user.credit || 0 }}</span>
-              <span class="label">信用分</span>
-            </div>
             <div class="stat-item">
               <span class="count">{{ userProducts.length }}</span>
               <span class="label">发布商品</span>
@@ -406,6 +410,23 @@ onMounted(() => {
 .user-avatar {
   width: 80px;
   height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initial {
+  width: 100%;
+  height: 100%;
   background: linear-gradient(135deg, #007bff, #0056b3);
   color: white;
   border-radius: 50%;
@@ -414,7 +435,6 @@ onMounted(() => {
   justify-content: center;
   font-weight: bold;
   font-size: 32px;
-  flex-shrink: 0;
 }
 
 .user-info {

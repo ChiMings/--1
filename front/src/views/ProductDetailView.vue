@@ -84,10 +84,9 @@
               </div>
               <div class="seller-details">
                 <div class="seller-name">{{ product.seller?.nickname || '匿名用户' }}</div>
-                <div class="seller-credit">
-                  信用等级：
-                  <span :class="getCreditClass(product.seller?.credit)">
-                    {{ getCreditText(product.seller?.credit) }}
+                <div class="seller-role">
+                  <span :class="getRoleClass(product.seller?.role)">
+                    {{ product.seller?.role || '认证用户' }}
                   </span>
                 </div>
               </div>
@@ -232,6 +231,16 @@
               <div class="comment-header">
                 <span class="author-name">{{ comment.author?.nickname || '匿名用户' }}</span>
                 <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
+                
+                <!-- 删除评论按钮 -->
+                <button 
+                  v-if="canDeleteComment(comment)"
+                  @click="handleDeleteComment(comment)"
+                  class="delete-comment-btn"
+                  title="删除评论"
+                >
+                  ×
+                </button>
               </div>
               <div class="comment-text">{{ comment.content }}</div>
             </div>
@@ -246,7 +255,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { getProductDetail, favoriteProduct, unfavoriteProduct } from '@/api/products';
+import { getProductDetail, favoriteProduct, unfavoriteProduct, deleteComment } from '@/api/products';
 import { mockComments } from '@/utils/mockData';
 import { config } from '@/utils/config';
 
@@ -329,8 +338,36 @@ function contactSeller() {
     showActivationTip();
     return;
   }
-  // 这里可以打开私信对话框或跳转到私信页面
-  alert(`联系卖家：${product.value.contact}`);
+  
+  if (!userStore.isLoggedIn) {
+    alert('请先登录后再联系卖家');
+    return;
+  }
+  
+  // 跳转到私信页面，并开始与卖家的对话
+  startConversationWithSeller();
+}
+
+// 开始与卖家的对话
+function startConversationWithSeller() {
+  const sellerId = product.value.seller.id;
+  const currentUserId = userStore.userInfo.id;
+  
+  if (sellerId === currentUserId) {
+    alert('这是您自己的商品');
+    return;
+  }
+  
+  // 跳转到私信页面，并传递卖家信息
+  router.push({
+    name: 'MyMessages',
+    query: {
+      userId: sellerId,
+      nickname: product.value.seller.nickname,
+      productId: product.value.id,
+      productName: product.value.name
+    }
+  });
 }
 
 // 显示激活提示
@@ -388,6 +425,45 @@ async function submitComment() {
   }
 }
 
+// 检查是否可以删除评论
+function canDeleteComment(comment) {
+  if (!userStore.isLoggedIn) return false;
+  
+  // 评论作者可以删除自己的评论
+  if (comment.author?.id === userStore.userInfo.id) return true;
+  
+  // 管理员和超级管理员可以删除任意评论
+  const role = userStore.userInfo?.role;
+  return role === '管理员' || role === '超级管理员';
+}
+
+// 删除评论
+async function handleDeleteComment(comment) {
+  const isOwnComment = comment.author?.id === userStore.userInfo.id;
+  const confirmMessage = isOwnComment 
+    ? '确定要删除您的评论吗？' 
+    : '确定要删除这条评论吗？';
+    
+  if (!confirm(confirmMessage)) {
+    return;
+  }
+  
+  try {
+    await deleteComment(comment.id);
+    
+    // 从本地评论列表中移除
+    const index = comments.value.findIndex(c => c.id === comment.id);
+    if (index !== -1) {
+      comments.value.splice(index, 1);
+    }
+    
+    alert('评论删除成功');
+  } catch (error) {
+    console.error('Failed to delete comment:', error);
+    alert('删除评论失败，请重试');
+  }
+}
+
 // 工具函数
 function getStatusClass(status) {
   const statusMap = {
@@ -396,6 +472,16 @@ function getStatusClass(status) {
     '已下架': 'status-removed'
   };
   return statusMap[status] || 'status-default';
+}
+
+function getRoleClass(role) {
+  const roleMap = {
+    '超级管理员': 'role-super-admin',
+    '管理员': 'role-admin',
+    '认证用户': 'role-verified',
+    '未认证用户': 'role-unverified'
+  };
+  return roleMap[role] || 'role-default';
 }
 
 function getCreditClass(credit) {
@@ -640,6 +726,31 @@ onMounted(() => {
 .credit-fair { color: #ffc107; }
 .credit-poor { color: #dc3545; }
 
+/* 角色样式 */
+.role-super-admin {
+  color: #dc3545;
+  font-weight: bold;
+}
+
+.role-admin {
+  color: #fd7e14;
+  font-weight: bold;
+}
+
+.role-verified {
+  color: #28a745;
+  font-weight: 500;
+}
+
+.role-unverified {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.role-default {
+  color: #6c757d;
+}
+
 .product-actions {
   display: flex;
   gap: 12px;
@@ -778,6 +889,7 @@ onMounted(() => {
 .comment-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 8px;
 }
 
@@ -789,6 +901,24 @@ onMounted(() => {
 .comment-time {
   font-size: 12px;
   color: #666;
+}
+
+.delete-comment-btn {
+  background: none;
+  border: none;
+  color: #dc3545;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+  margin-left: 8px;
+}
+
+.delete-comment-btn:hover {
+  background: #f8d7da;
+  color: #721c24;
 }
 
 .comment-text {
