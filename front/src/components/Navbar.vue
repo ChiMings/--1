@@ -8,6 +8,8 @@
       
       <nav class="nav-links">
         <router-link to="/" class="nav-link">首页</router-link>
+        <router-link to="/categories" class="nav-link">分类</router-link>
+        <router-link to="/about" class="nav-link">关于</router-link>
         
         <template v-if="userStore.token">
           <!-- 用户菜单 -->
@@ -19,23 +21,65 @@
             </div>
             
             <div v-if="showUserMenu" class="dropdown-menu">
-              <router-link to="/user/products" class="dropdown-item" @click="closeUserMenu">
-                我的发布
-              </router-link>
-              <router-link to="/user/favorites" class="dropdown-item" @click="closeUserMenu">
-                我的收藏
-              </router-link>
-              <router-link to="/user/messages" class="dropdown-item" @click="closeUserMenu">
-                私信消息
-              </router-link>
-              <router-link to="/user/notifications" class="dropdown-item" @click="closeUserMenu">
-                系统通知
-              </router-link>
-              <router-link to="/user/profile" class="dropdown-item" @click="closeUserMenu">
-                个人设置
-              </router-link>
+              <div class="dropdown-header">
+                <div class="user-info">
+                  <div class="user-meta">
+                    <span class="user-role">{{ userStore.userInfo?.role }}</span>
+                    <span class="user-credit">信用: {{ userStore.userInfo?.credit }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dropdown-section">
+                <div class="section-title">我的商品</div>
+                <router-link to="/user/products" class="dropdown-item">
+                  <span class="item-icon">📦</span>
+                  我的发布
+                </router-link>
+                <router-link to="/user/product/create" class="dropdown-item">
+                  <span class="item-icon">➕</span>
+                  发布商品
+                </router-link>
+                <router-link to="/user/favorites" class="dropdown-item">
+                  <span class="item-icon">❤️</span>
+                  我的收藏
+                </router-link>
+              </div>
+
+              <div class="dropdown-section">
+                <div class="section-title">消息中心</div>
+                <router-link to="/user/messages" class="dropdown-item">
+                  <span class="item-icon">💬</span>
+                  私信消息
+                  <span v-if="unreadMessages > 0" class="badge">{{ unreadMessages }}</span>
+                </router-link>
+                <router-link to="/user/notifications" class="dropdown-item">
+                  <span class="item-icon">🔔</span>
+                  系统通知
+                  <span v-if="unreadNotifications > 0" class="badge">{{ unreadNotifications }}</span>
+                </router-link>
+              </div>
+
+              <div class="dropdown-section">
+                <div class="section-title">账号管理</div>
+                <router-link to="/user/profile" class="dropdown-item">
+                  <span class="item-icon">⚙️</span>
+                  个人设置
+                </router-link>
+                <router-link 
+                  v-if="isAdmin" 
+                  to="/admin/dashboard" 
+                  class="dropdown-item admin-item"
+                >
+                  <span class="item-icon">🛠️</span>
+                  管理后台
+                </router-link>
+              </div>
+
               <div class="dropdown-divider"></div>
+              
               <button @click="handleLogout" class="dropdown-item logout-item">
+                <span class="item-icon">🚪</span>
                 退出登录
               </button>
             </div>
@@ -70,6 +114,14 @@
     <div v-if="showMobileMenu" class="mobile-menu">
       <router-link to="/" class="mobile-nav-link" @click="closeMobileMenu">
         首页
+      </router-link>
+      
+      <router-link to="/categories" class="mobile-nav-link" @click="closeMobileMenu">
+        分类
+      </router-link>
+      
+      <router-link to="/about" class="mobile-nav-link" @click="closeMobileMenu">
+        关于
       </router-link>
       
       <template v-if="userStore.token">
@@ -111,6 +163,10 @@ const showUserMenu = ref(false);
 const showMobileMenu = ref(false);
 const userMenuRef = ref(null);
 
+// 模拟未读消息数量
+const unreadMessages = ref(3);
+const unreadNotifications = ref(1);
+
 // 计算属性
 const userName = computed(() => {
   return userStore.userInfo?.nickname || userStore.userInfo?.name || '用户';
@@ -144,10 +200,12 @@ function closeMobileMenu() {
 }
 
 function handleLogout() {
-  userStore.logout();
-  closeUserMenu();
-  closeMobileMenu();
-  router.push('/');
+  if (confirm('确定要退出登录吗？')) {
+    userStore.logout();
+    closeUserMenu();
+    closeMobileMenu();
+    router.push('/');
+  }
 }
 
 // 点击外部关闭用户菜单
@@ -298,6 +356,41 @@ onUnmounted(() => {
   padding: 8px 0;
   min-width: 180px;
   z-index: 1001;
+}
+
+.dropdown-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.user-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.user-role {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.user-credit {
+  color: #666;
+}
+
+.dropdown-section {
+  padding: 8px 0;
+}
+
+.section-title {
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .dropdown-item {

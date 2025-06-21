@@ -1,3 +1,719 @@
 <template>
-  <h1>个人资料编辑</h1>
-</template> 
+  <div class="profile-edit-page">
+    <div class="page-header">
+      <h1>个人设置</h1>
+      <p>管理您的个人信息和账号设置</p>
+    </div>
+
+    <!-- 用户基本信息 -->
+    <div class="info-section">
+      <h3>基本信息</h3>
+      <form @submit.prevent="updateProfile" class="profile-form">
+        <div class="form-group">
+          <label>学工号</label>
+          <input 
+            :value="userInfo?.studentId" 
+            type="text" 
+            disabled 
+            class="disabled-input"
+          />
+          <div class="form-hint">学工号不可修改</div>
+        </div>
+
+        <div class="form-group">
+          <label>真实姓名</label>
+          <input 
+            :value="userInfo?.name" 
+            type="text" 
+            disabled 
+            class="disabled-input"
+          />
+          <div class="form-hint">真实姓名不可修改</div>
+        </div>
+
+        <div class="form-group">
+          <label>昵称</label>
+          <input 
+            v-model="profileForm.nickname" 
+            type="text" 
+            placeholder="请输入昵称"
+            maxlength="20"
+            required
+          />
+          <div class="char-count">{{ profileForm.nickname.length }}/20</div>
+        </div>
+
+        <div class="form-group">
+          <label>联系方式</label>
+          <input 
+            v-model="profileForm.contact" 
+            type="text" 
+            placeholder="QQ/微信/手机号等"
+            maxlength="50"
+          />
+          <div class="form-hint">用于买家联系您，建议填写常用联系方式</div>
+        </div>
+
+        <div class="form-group">
+          <label>用户角色</label>
+          <div class="role-display">
+            <span :class="getRoleClass(userInfo?.role)">{{ userInfo?.role }}</span>
+            <div class="role-hint">
+              <span v-if="userInfo?.role === '未认证用户'">
+                完成身份认证可获得更多功能
+              </span>
+              <span v-else-if="userInfo?.role === '认证用户'">
+                您已通过身份认证
+              </span>
+              <span v-else-if="userInfo?.role === '管理员'">
+                您拥有管理员权限
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>信用等级</label>
+          <div class="credit-display">
+            <div class="credit-score">
+              <span :class="getCreditClass(userInfo?.credit)">
+                {{ userInfo?.credit || 0 }}
+              </span>
+              <span class="credit-text">{{ getCreditText(userInfo?.credit) }}</span>
+            </div>
+            <div class="credit-hint">
+              良好的交易记录有助于提升信用等级
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button 
+            type="submit" 
+            :disabled="updatingProfile"
+            class="btn btn-primary"
+          >
+            {{ updatingProfile ? '保存中...' : '保存修改' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 密码修改 -->
+    <div class="info-section">
+      <h3>密码修改</h3>
+      <form @submit.prevent="updatePassword" class="password-form">
+        <div class="form-group">
+          <label>当前密码</label>
+          <input 
+            v-model="passwordForm.currentPassword" 
+            type="password" 
+            placeholder="请输入当前密码"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label>新密码</label>
+          <input 
+            v-model="passwordForm.newPassword" 
+            type="password" 
+            placeholder="请输入新密码（至少6位）"
+            minlength="6"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label>确认新密码</label>
+          <input 
+            v-model="passwordForm.confirmPassword" 
+            type="password" 
+            placeholder="请再次输入新密码"
+            required
+          />
+        </div>
+
+        <div v-if="passwordError" class="error-message">
+          {{ passwordError }}
+        </div>
+
+        <div class="form-actions">
+          <button 
+            type="submit" 
+            :disabled="updatingPassword || !isPasswordFormValid"
+            class="btn btn-primary"
+          >
+            {{ updatingPassword ? '修改中...' : '修改密码' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 账号统计 -->
+    <div class="info-section">
+      <h3>账号统计</h3>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-value">{{ userStats.totalProducts }}</div>
+          <div class="stat-label">发布商品</div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-value">{{ userStats.soldProducts }}</div>
+          <div class="stat-label">已售商品</div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-value">{{ userStats.favoriteProducts }}</div>
+          <div class="stat-label">收藏商品</div>
+        </div>
+        
+        <div class="stat-item">
+          <div class="stat-value">{{ userStats.totalMessages }}</div>
+          <div class="stat-label">消息总数</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 隐私设置 -->
+    <div class="info-section">
+      <h3>隐私设置</h3>
+      <div class="privacy-settings">
+        <div class="setting-item">
+          <label class="setting-label">
+            <input 
+              v-model="privacySettings.showContact" 
+              type="checkbox"
+              @change="updatePrivacySettings"
+            />
+            <span>允许其他用户查看我的联系方式</span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <label class="setting-label">
+            <input 
+              v-model="privacySettings.showProducts" 
+              type="checkbox"
+              @change="updatePrivacySettings"
+            />
+            <span>允许其他用户查看我的商品列表</span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <label class="setting-label">
+            <input 
+              v-model="privacySettings.receiveMessages" 
+              type="checkbox"
+              @change="updatePrivacySettings"
+            />
+            <span>接收其他用户的私信</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 账号操作 -->
+    <div class="info-section danger-section">
+      <h3>账号操作</h3>
+      <div class="danger-actions">
+        <button @click="exportData" class="btn btn-outline-primary">
+          导出我的数据
+        </button>
+        
+        <button @click="confirmDeactivate" class="btn btn-outline-danger">
+          注销账号
+        </button>
+      </div>
+      <div class="danger-hint">
+        注销账号将删除您的所有数据，此操作不可恢复，请谨慎操作。
+      </div>
+    </div>
+
+    <!-- 错误信息 -->
+    <div v-if="error" class="error-message">
+      {{ error }}
+    </div>
+
+    <!-- 成功信息 -->
+    <div v-if="successMessage" class="success-message">
+      {{ successMessage }}
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useUserStore } from '@/store/user';
+import { updateUserInfo } from '@/api/users';
+
+const userStore = useUserStore();
+
+// 响应式数据
+const updatingProfile = ref(false);
+const updatingPassword = ref(false);
+const error = ref('');
+const passwordError = ref('');
+const successMessage = ref('');
+
+const profileForm = reactive({
+  nickname: '',
+  contact: '',
+});
+
+const passwordForm = reactive({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+});
+
+const privacySettings = reactive({
+  showContact: true,
+  showProducts: true,
+  receiveMessages: true,
+});
+
+const userStats = reactive({
+  totalProducts: 0,
+  soldProducts: 0,
+  favoriteProducts: 0,
+  totalMessages: 0,
+});
+
+// 计算属性
+const userInfo = computed(() => userStore.userInfo);
+
+const isPasswordFormValid = computed(() => {
+  return passwordForm.currentPassword &&
+         passwordForm.newPassword &&
+         passwordForm.confirmPassword &&
+         passwordForm.newPassword === passwordForm.confirmPassword &&
+         passwordForm.newPassword.length >= 6;
+});
+
+// 初始化表单数据
+function initializeForm() {
+  if (userInfo.value) {
+    profileForm.nickname = userInfo.value.nickname || '';
+    profileForm.contact = userInfo.value.contact || '';
+  }
+}
+
+// 加载用户统计数据
+function loadUserStats() {
+  // 模拟统计数据
+  userStats.totalProducts = 12;
+  userStats.soldProducts = 8;
+  userStats.favoriteProducts = 15;
+  userStats.totalMessages = 23;
+}
+
+// 更新个人信息
+async function updateProfile() {
+  try {
+    updatingProfile.value = true;
+    error.value = '';
+    successMessage.value = '';
+    
+    const updateData = {
+      nickname: profileForm.nickname.trim(),
+      contact: profileForm.contact.trim(),
+    };
+    
+    await updateUserInfo(updateData);
+    
+    // 更新store中的用户信息
+    Object.assign(userStore.userInfo, updateData);
+    
+    successMessage.value = '个人信息更新成功';
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 3000);
+  } catch (err) {
+    console.error('Failed to update profile:', err);
+    error.value = err.response?.data?.message || '更新失败，请重试';
+  } finally {
+    updatingProfile.value = false;
+  }
+}
+
+// 修改密码
+async function updatePassword() {
+  try {
+    updatingPassword.value = true;
+    passwordError.value = '';
+    
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      passwordError.value = '两次输入的新密码不一致';
+      return;
+    }
+    
+    // 这里应该调用修改密码的API
+    // await changePassword({
+    //   currentPassword: passwordForm.currentPassword,
+    //   newPassword: passwordForm.newPassword,
+    // });
+    
+    // 模拟API调用
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // 清空表单
+    passwordForm.currentPassword = '';
+    passwordForm.newPassword = '';
+    passwordForm.confirmPassword = '';
+    
+    successMessage.value = '密码修改成功';
+    setTimeout(() => {
+      successMessage.value = '';
+    }, 3000);
+  } catch (err) {
+    console.error('Failed to update password:', err);
+    passwordError.value = err.response?.data?.message || '密码修改失败，请检查当前密码是否正确';
+  } finally {
+    updatingPassword.value = false;
+  }
+}
+
+// 更新隐私设置
+async function updatePrivacySettings() {
+  try {
+    // 这里应该调用更新隐私设置的API
+    // await updatePrivacySettings(privacySettings);
+    
+    console.log('Privacy settings updated:', privacySettings);
+  } catch (err) {
+    console.error('Failed to update privacy settings:', err);
+  }
+}
+
+// 导出数据
+function exportData() {
+  alert('导出功能开发中，敬请期待');
+}
+
+// 确认注销账号
+function confirmDeactivate() {
+  if (confirm('确定要注销账号吗？此操作不可恢复！')) {
+    if (confirm('再次确认：注销账号将删除您的所有数据，确定继续吗？')) {
+      alert('账号注销功能需要联系管理员处理');
+    }
+  }
+}
+
+// 工具函数
+function getRoleClass(role) {
+  const roleMap = {
+    '未认证用户': 'role-unverified',
+    '认证用户': 'role-verified',
+    '管理员': 'role-admin',
+    '超级管理员': 'role-super-admin'
+  };
+  return roleMap[role] || 'role-default';
+}
+
+function getCreditClass(credit) {
+  if (credit >= 95) return 'credit-excellent';
+  if (credit >= 85) return 'credit-good';
+  if (credit >= 70) return 'credit-fair';
+  return 'credit-poor';
+}
+
+function getCreditText(credit) {
+  if (credit >= 95) return '优秀';
+  if (credit >= 85) return '良好';
+  if (credit >= 70) return '一般';
+  return '较差';
+}
+
+// 组件挂载
+onMounted(() => {
+  initializeForm();
+  loadUserStats();
+});
+</script>
+
+<style scoped>
+.profile-edit-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  margin: 0 0 8px 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.page-header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.info-section {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.info-section h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 18px;
+  border-bottom: 2px solid #007bff;
+  padding-bottom: 8px;
+}
+
+.danger-section h3 {
+  border-bottom-color: #dc3545;
+}
+
+.profile-form,
+.password-form {
+  max-width: 500px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.disabled-input {
+  background: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.char-count {
+  text-align: right;
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.role-display,
+.credit-display {
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.role-unverified { color: #ffc107; }
+.role-verified { color: #28a745; }
+.role-admin { color: #007bff; }
+.role-super-admin { color: #dc3545; }
+
+.credit-score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.credit-score span:first-child {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.credit-excellent { color: #28a745; }
+.credit-good { color: #17a2b8; }
+.credit-fair { color: #ffc107; }
+.credit-poor { color: #dc3545; }
+
+.role-hint,
+.credit-hint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 20px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #007bff;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.privacy-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.setting-label input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.danger-actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.danger-hint {
+  font-size: 12px;
+  color: #dc3545;
+  padding: 12px;
+  background: #f8d7da;
+  border-radius: 4px;
+}
+
+.form-actions {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.error-message {
+  background: #f8d7da;
+  color: #721c24;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.success-message {
+  background: #d4edda;
+  color: #155724;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 16px 0;
+  font-size: 14px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-primary {
+  background: #007bff;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-outline-primary {
+  background: transparent;
+  color: #007bff;
+  border: 1px solid #007bff;
+}
+
+.btn-outline-primary:hover:not(:disabled) {
+  background: #007bff;
+  color: white;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+}
+
+.btn-outline-danger:hover:not(:disabled) {
+  background: #dc3545;
+  color: white;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .info-section {
+    padding: 16px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .danger-actions {
+    flex-direction: column;
+  }
+}
+</style> 
