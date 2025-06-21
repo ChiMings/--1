@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { useUserStore } from '@/store/user';
 
 //  layouts
 import AdminLayout from '../layouts/AdminLayout.vue';
@@ -35,6 +36,7 @@ const routes = [
     path: '/',
     name: 'Home',
     component: HomeView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/login',
@@ -50,23 +52,26 @@ const routes = [
     path: '/product/:id',
     name: 'ProductDetail',
     component: ProductDetailView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/profile/:userId',
     name: 'UserProfile',
     component: UserProfileView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/notices',
     name: 'Notices',
     component: NoticesView,
+    meta: { requiresAuth: true }
   },
 
   // --- 个人中心 (需要认证) ---
   {
     path: '/user',
     component: UserCenterLayout,
-    // meta: { requiresAuth: true }, // 可选：用于路由守卫
+    meta: { requiresAuth: true },
     children: [
       {
         path: 'profile',
@@ -111,7 +116,7 @@ const routes = [
   {
     path: '/admin',
     component: AdminLayout,
-    // meta: { requiresAdmin: true }, // 可选：用于路由守卫
+    meta: { requiresAdmin: true },
     children: [
       {
         path: 'dashboard',
@@ -145,6 +150,33 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
+});
+
+// 路由守卫
+router.beforeEach((to, from, next) => {
+  const userStore = useUserStore();
+  
+  // 检查是否需要登录认证
+  if (to.meta.requiresAuth && !userStore.isLoggedIn) {
+    // 未登录用户重定向到登录页
+    next('/login');
+    return;
+  }
+  
+  // 检查是否需要管理员权限
+  if (to.meta.requiresAdmin && !userStore.isAdmin) {
+    // 非管理员用户重定向到首页
+    next('/');
+    return;
+  }
+  
+  // 如果已经登录，访问登录页面则重定向到首页
+  if (to.name === 'Login' && userStore.isLoggedIn) {
+    next('/');
+    return;
+  }
+  
+  next();
 });
 
 export default router; 

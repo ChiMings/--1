@@ -251,7 +251,20 @@ async function handleLogin() {
     // 登录成功，跳转到首页
     router.push('/');
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || '登录失败，请检查学工号和密码';
+    console.error('Login error:', err);
+    
+    // 提供更友好的错误提示
+    if (err.response?.status === 404) {
+      error.value = '学号不存在，请检查学号是否正确或联系管理员';
+    } else if (err.response?.status === 401) {
+      error.value = '密码错误，请检查密码或使用忘记密码功能';
+    } else if (err.response?.status === 403) {
+      error.value = '账号被禁用，请联系管理员';
+    } else if (err.response?.data?.message) {
+      error.value = err.response.data.message;
+    } else {
+      error.value = '登录失败，请检查学号和密码是否正确';
+    }
   } finally {
     loading.value = false;
   }
@@ -268,7 +281,16 @@ async function handleGuestLogin() {
     // 登录成功，跳转到首页
     router.push('/');
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || '游客登录失败，请检查学工号和姓名';
+    console.error('Guest login error:', err);
+    
+    // 提供更友好的错误提示
+    if (err.response?.status === 404) {
+      error.value = '学号不存在或姓名不匹配，请检查信息是否正确';
+    } else if (err.response?.data?.message) {
+      error.value = err.response.data.message;
+    } else {
+      error.value = '游客登录失败，请检查学号和姓名是否正确';
+    }
   } finally {
     loading.value = false;
   }
@@ -285,7 +307,20 @@ async function handleActivate() {
     // 激活成功，跳转到首页
     router.push('/');
   } catch (err) {
-    error.value = err.response?.data?.message || err.message || '账号激活失败，请检查信息是否正确';
+    console.error('Activation error:', err);
+    
+    // 提供更友好的错误提示
+    if (err.response?.status === 404) {
+      error.value = '学号不存在或姓名不匹配，请检查信息是否正确';
+    } else if (err.response?.status === 400) {
+      error.value = '激活码无效或已过期，请检查激活码是否正确';
+    } else if (err.response?.status === 409) {
+      error.value = '该账号已激活，请直接使用认证登录';
+    } else if (err.response?.data?.message) {
+      error.value = err.response.data.message;
+    } else {
+      error.value = '账号激活失败，请检查所有信息是否正确';
+    }
   } finally {
     loading.value = false;
   }

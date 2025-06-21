@@ -1,7 +1,7 @@
 // 开发配置
 export const config = {
   // 是否使用模拟数据 (设为true在没有后端时使用模拟数据)
-  useMockData: true,
+  useMockData: false,
   
   // API基础地址
   apiBaseURL: '/api',

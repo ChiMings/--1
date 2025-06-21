@@ -158,11 +158,18 @@ export const useUserStore = defineStore('user', () => {
 
   // 计算属性
   const isLoggedIn = computed(() => !!token.value);
+  const isAdmin = computed(() => {
+    return userInfo.value && (
+      userInfo.value.role === '管理员' || 
+      userInfo.value.role === '超级管理员'
+    );
+  });
 
   return {
     token,
     userInfo,
     isLoggedIn,
+    isAdmin,
     login,
     guestLogin,
     activate,

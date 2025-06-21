@@ -278,7 +278,7 @@ const filteredProducts = computed(() => {
 async function loadUserProfile() {
   try {
     loading.value = true;
-    const userId = parseInt(route.params.id);
+    const userId = parseInt(route.params.userId);
     
     if (config.useMockData) {
       // 使用模拟数据
@@ -306,8 +306,19 @@ function sendMessage() {
     return;
   }
   
-  // 跳转到私信页面
-  router.push('/messages');
+  if (!user.value) {
+    alert('用户信息加载失败');
+    return;
+  }
+  
+  // 跳转到私信页面，并自动开启与该用户的对话
+  router.push({
+    name: 'MyMessages',
+    query: {
+      userId: user.value.id,
+      nickname: user.value.nickname || user.value.name
+    }
+  });
 }
 
 // 举报用户

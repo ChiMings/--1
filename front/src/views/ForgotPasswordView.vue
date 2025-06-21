@@ -53,6 +53,13 @@
                   返回登录
                 </router-link>
               </div>
+
+              <div class="activation-hint">
+                <p>还没有激活账号？</p>
+                <router-link to="/login" class="activation-link">
+                  点击这里激活账号并设置密码
+                </router-link>
+              </div>
             </form>
           </div>
 
@@ -748,6 +755,30 @@ function goToPreviousStep() {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.activation-hint {
+  text-align: center;
+  padding: 16px 0;
+  border-top: 1px solid #eee;
+  margin-top: 16px;
+}
+
+.activation-hint p {
+  margin: 0 0 8px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.activation-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.activation-link:hover {
+  color: #0056b3;
+  text-decoration: underline;
 }
 
 .success-content {
