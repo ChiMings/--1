@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { login as apiLogin, activate as apiActivate, guestLogin as apiGuestLogin } from '@/api/auth';
 import { mockUsers, getUserById } from '@/utils/mockData';
 import { config } from '@/utils/config';
@@ -156,9 +156,13 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 计算属性
+  const isLoggedIn = computed(() => !!token.value);
+
   return {
     token,
     userInfo,
+    isLoggedIn,
     login,
     guestLogin,
     activate,

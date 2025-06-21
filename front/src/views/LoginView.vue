@@ -22,6 +22,9 @@
           <button @click="quickLoginAs(5)" class="btn btn-secondary">
             登录为: 待激活用户 (功能受限)
           </button>
+          <button @click="quickLoginAs(6)" class="btn btn-info">
+            登录为: 数码控 (未认证用户)
+          </button>
           <button @click="quickLoginAs(3)" class="btn btn-warning">
             登录为: 运动达人 (认证用户)
           </button>
@@ -377,6 +380,11 @@ async function handleActivate() {
 
 .btn-secondary {
   background: #6c757d;
+  color: white;
+}
+
+.btn-info {
+  background: #17a2b8;
   color: white;
 }
 

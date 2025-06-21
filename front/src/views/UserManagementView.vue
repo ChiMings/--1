@@ -252,18 +252,7 @@
               </span>
             </label>
             
-            <label v-if="isSuperAdmin" class="role-option">
-              <input 
-                v-model="newRole" 
-                type="radio" 
-                value="超级管理员"
-                :disabled="!canSetRole('超级管理员')"
-              />
-              <span class="role-label">
-                <span class="role-name">超级管理员</span>
-                <span class="role-desc">最高权限，可管理其他管理员</span>
-              </span>
-            </label>
+
           </div>
           
           <div class="role-warning">
@@ -375,7 +364,7 @@ const paginatedUsers = computed(() => {
 const extendedUsers = [
   ...mockUsers,
   {
-    id: 4,
+    id: 6,
     studentId: '20210004',
     name: '赵六',
     nickname: '数码控',
@@ -385,23 +374,23 @@ const extendedUsers = [
     createdAt: '2023-11-01T08:00:00Z'
   },
   {
-    id: 5,
+    id: 7,
     studentId: '20210005',
     name: '钱七',
-    nickname: null,
-    contact: null,
+    nickname: '待认证用户',
+    contact: '13800138005',
     role: '未认证用户',
     credit: 0,
     createdAt: '2023-10-30T20:15:00Z'
   },
   {
-    id: 6,
-    studentId: '20200001',
+    id: 8,
+    studentId: '20210006',
     name: '孙八',
-    nickname: '超级管理员',
-    contact: '13800138000',
-    role: '超级管理员',
-    credit: 100,
+    nickname: '学习委员',
+    contact: '13800138006',
+    role: '认证用户',
+    credit: 75,
     createdAt: '2023-08-01T00:00:00Z'
   }
 ];
@@ -502,8 +491,24 @@ function canModifyRole(user) {
 }
 
 function canSetRole(role) {
-  if (!isSuperAdmin.value) return false;
-  return true;
+  const currentUserRole = userStore.userInfo?.role;
+  
+  // 超级管理员不能设置其他人为超级管理员
+  if (role === '超级管理员') {
+    return false;
+  }
+  
+  // 管理员不能设置其他人为管理员或超级管理员
+  if (currentUserRole === '管理员' && (role === '管理员' || role === '超级管理员')) {
+    return false;
+  }
+  
+  // 只有超级管理员可以设置认证用户和管理员
+  if (currentUserRole === '超级管理员' && (role === '认证用户' || role === '管理员')) {
+    return true;
+  }
+  
+  return false;
 }
 
 function canSendMessage(user) {

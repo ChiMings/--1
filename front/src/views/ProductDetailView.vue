@@ -67,7 +67,11 @@
             </div>
             <div class="meta-item">
               <span class="label">联系方式：</span>
-              <span class="value">{{ product.contact }}</span>
+              <span v-if="userStore.isLoggedIn && !isUnverifiedUser" class="value">{{ product.contact }}</span>
+              <span v-else class="value contact-restricted">
+                <span class="restriction-icon">🔒</span>
+                需要认证后查看
+              </span>
             </div>
           </div>
 
@@ -105,12 +109,23 @@
 
           <!-- 操作按钮 -->
           <div class="product-actions">
+            <!-- 收藏按钮 - 只有认证用户可以收藏 -->
             <button 
-              v-if="!isOwnProduct && product.status === '在售'"
+              v-if="!isOwnProduct && product.status === '在售' && userStore.isLoggedIn && !isUnverifiedUser"
               @click="toggleFavorite"
               :class="['btn', product.isFavorite ? 'btn-danger' : 'btn-outline-primary']"
             >
               {{ product.isFavorite ? '取消收藏' : '收藏商品' }}
+            </button>
+            
+            <!-- 未认证用户的收藏按钮 - 禁用状态 -->
+            <button 
+              v-if="!isOwnProduct && product.status === '在售' && isUnverifiedUser"
+              @click="showActivationTip"
+              class="btn btn-outline-secondary"
+              disabled
+            >
+              收藏商品 (需要认证)
             </button>
             
             <button 
@@ -130,13 +145,23 @@
               我想要 (需要认证)
             </button>
 
-            <!-- 举报按钮 -->
+            <!-- 举报按钮 - 只有认证用户可以举报 -->
             <button 
-              v-if="!isOwnProduct"
+              v-if="!isOwnProduct && userStore.isLoggedIn && !isUnverifiedUser"
               @click="reportProduct"
               class="btn btn-outline-danger btn-sm"
             >
               举报
+            </button>
+            
+            <!-- 未认证用户的举报按钮 - 禁用状态 -->
+            <button 
+              v-if="!isOwnProduct && isUnverifiedUser"
+              @click="showActivationTip"
+              class="btn btn-outline-secondary btn-sm"
+              disabled
+            >
+              举报 (需要认证)
             </button>
           </div>
         </div>
@@ -189,7 +214,17 @@
             <p>暂无评论，快来发表第一条评论吧！</p>
           </div>
           
-          <div v-for="comment in comments" :key="comment.id" class="comment-item">
+          <!-- 未认证用户无法查看评论 -->
+          <div v-if="isUnverifiedUser" class="comments-restricted">
+            <p class="restriction-notice">
+              <span class="restriction-icon">🔒</span>
+              完成账号激活后可查看和发表评论
+            </p>
+            <router-link to="/login" class="btn btn-warning">去激活</router-link>
+          </div>
+          
+          <!-- 认证用户可以查看评论 -->
+          <div v-else v-for="comment in comments" :key="comment.id" class="comment-item">
             <div class="comment-avatar">
               <div class="avatar">{{ comment.author?.nickname?.charAt(0) || 'U' }}</div>
             </div>
@@ -265,6 +300,17 @@ async function loadProduct() {
 
 // 收藏/取消收藏
 async function toggleFavorite() {
+  // 权限检查
+  if (isUnverifiedUser.value) {
+    showActivationTip();
+    return;
+  }
+  
+  if (!userStore.isLoggedIn) {
+    alert('请先登录后再收藏商品');
+    return;
+  }
+  
   try {
     if (product.value.isFavorite) {
       await unfavoriteProduct(product.value.id);
@@ -289,11 +335,22 @@ function contactSeller() {
 
 // 显示激活提示
 function showActivationTip() {
-  alert('完成账号激活后可查看联系方式和发表评论');
+  alert('完成账号激活后可查看联系方式、发表评论、收藏商品和举报功能');
 }
 
 // 举报商品
 function reportProduct() {
+  // 权限检查
+  if (isUnverifiedUser.value) {
+    showActivationTip();
+    return;
+  }
+  
+  if (!userStore.isLoggedIn) {
+    alert('请先登录后再举报商品');
+    return;
+  }
+  
   if (confirm('确定要举报这个商品吗？')) {
     alert('举报已提交，我们会尽快处理');
   }
@@ -737,6 +794,35 @@ onMounted(() => {
 .comment-text {
   line-height: 1.5;
   color: #555;
+}
+
+.contact-restricted {
+  color: #6c757d !important;
+  font-style: italic;
+}
+
+.restriction-icon {
+  color: #ffc107;
+  margin-right: 4px;
+}
+
+.comments-restricted {
+  text-align: center;
+  padding: 32px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.restriction-notice {
+  margin: 0 0 16px 0;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.restriction-notice .restriction-icon {
+  font-size: 16px;
+  margin-right: 8px;
 }
 
 .btn {

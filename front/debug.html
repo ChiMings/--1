@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>权限调试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .user-info { background: #f0f8ff; }
+        .permission-info { background: #f0fff0; }
+        .test-result { background: #fff8dc; }
+        .error { background: #ffe4e1; }
+    </style>
+</head>
+<body>
+    <h1>权限调试页面</h1>
+    
+    <div class="debug-section user-info">
+        <h2>用户信息</h2>
+        <p>当前用户角色：<span id="userRole">未登录</span></p>
+        <p>是否已登录：<span id="isLoggedIn">否</span></p>
+        <p>用户ID：<span id="userId">--</span></p>
+        <p>用户昵称：<span id="userNickname">--</span></p>
+    </div>
+    
+    <div class="debug-section permission-info">
+        <h2>权限检查</h2>
+        <p>是否为未认证用户：<span id="isUnverified">--</span></p>
+        <p>是否为管理员：<span id="isAdmin">--</span></p>
+        <p>是否为超级管理员：<span id="isSuperAdmin">--</span></p>
+    </div>
+    
+    <div class="debug-section test-result">
+        <h2>权限测试结果</h2>
+        <p>可以查看联系方式：<span id="canViewContact">--</span></p>
+        <p>可以发表评论：<span id="canComment">--</span></p>
+        <p>可以收藏商品：<span id="canFavorite">--</span></p>
+        <p>可以举报商品：<span id="canReport">--</span></p>
+    </div>
+    
+    <div class="debug-section">
+        <h2>快速登录测试</h2>
+        <button onclick="testLogin(1)">登录为认证用户</button>
+        <button onclick="testLogin(5)">登录为未认证用户</button>
+        <button onclick="testLogin(6)">登录为数码控</button>
+        <button onclick="testLogin(4)">登录为超级管理员</button>
+    </div>
+    
+    <script>
+        // 模拟权限检查函数
+        function updateDebugInfo() {
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
+            const token = localStorage.getItem('token');
+            
+            document.getElementById('userRole').textContent = userInfo?.role || '未登录';
+            document.getElementById('isLoggedIn').textContent = !!token ? '是' : '否';
+            document.getElementById('userId').textContent = userInfo?.id || '--';
+            document.getElementById('userNickname').textContent = userInfo?.nickname || '--';
+            
+            const isUnverified = userInfo?.role === '未认证用户';
+            const isAdmin = userInfo?.role === '管理员';
+            const isSuperAdmin = userInfo?.role === '超级管理员';
+            
+            document.getElementById('isUnverified').textContent = isUnverified ? '是' : '否';
+            document.getElementById('isAdmin').textContent = isAdmin ? '是' : '否';
+            document.getElementById('isSuperAdmin').textContent = isSuperAdmin ? '是' : '否';
+            
+            // 权限测试
+            const canViewContact = !!token && !isUnverified;
+            const canComment = !!token && !isUnverified;
+            const canFavorite = !!token && !isUnverified;
+            const canReport = !!token && !isUnverified;
+            
+            document.getElementById('canViewContact').textContent = canViewContact ? '是' : '否';
+            document.getElementById('canComment').textContent = canComment ? '是' : '否';
+            document.getElementById('canFavorite').textContent = canFavorite ? '是' : '否';
+            document.getElementById('canReport').textContent = canReport ? '是' : '否';
+        }
+        
+        // 模拟快速登录
+        function testLogin(userId) {
+            const mockUsers = {
+                1: { id: 1, nickname: '技术宅', role: '认证用户' },
+                4: { id: 4, nickname: '超级管理员', role: '超级管理员' },
+                5: { id: 5, nickname: '待激活用户', role: '未认证用户' },
+                6: { id: 6, nickname: '数码控', role: '未认证用户' }
+            };
+            
+            const user = mockUsers[userId];
+            if (user) {
+                localStorage.setItem('token', `mock_token_${userId}`);
+                localStorage.setItem('userInfo', JSON.stringify(user));
+                updateDebugInfo();
+                console.log('登录成功:', user);
+            }
+        }
+        
+        // 页面加载时更新信息
+        updateDebugInfo();
+        
+        // 每秒更新一次（监听localStorage变化）
+        setInterval(updateDebugInfo, 1000);
+    </script>
+</body>
+</html> 

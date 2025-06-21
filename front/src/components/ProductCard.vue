@@ -52,11 +52,19 @@
           删除
         </button>
         <button 
-          v-if="!isOwner && userStore.token" 
+          v-if="!isOwner && userStore.token && !isUnverifiedUser" 
           @click="$emit('favorite', product)"
           class="btn btn-primary"
         >
           {{ product.isFavorite ? '取消收藏' : '收藏' }}
+        </button>
+        <button 
+          v-if="!isOwner && isUnverifiedUser" 
+          @click="$emit('activation-tip')"
+          class="btn btn-outline-secondary"
+          disabled
+        >
+          收藏 (需要认证)
         </button>
       </div>
     </div>
@@ -78,12 +86,16 @@ const props = defineProps({
   },
 });
 
-defineEmits(['edit', 'delete', 'mark-sold', 'favorite']);
+defineEmits(['edit', 'delete', 'mark-sold', 'favorite', 'activation-tip']);
 
 const userStore = useUserStore();
 
 const isOwner = computed(() => {
   return userStore.userInfo?.id === props.product.seller?.id;
+});
+
+const isUnverifiedUser = computed(() => {
+  return userStore.isLoggedIn && userStore.userInfo?.role === '未认证用户';
 });
 
 const statusClass = computed(() => {
@@ -242,5 +254,21 @@ function handleImageError(event) {
 
 .btn-danger:hover {
   background-color: #c82333;
+}
+
+.btn-outline-secondary {
+  background: transparent;
+  color: #6c757d;
+  border: 1px solid #6c757d;
+}
+
+.btn-outline-secondary:hover:not(:disabled) {
+  background: #6c757d;
+  color: white;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style> 

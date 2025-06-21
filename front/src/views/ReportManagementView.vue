@@ -425,11 +425,32 @@ async function confirmProcess() {
         reports.value[index].processedAt = new Date().toISOString();
       }
       
-      const actionText = processAction.value === 'resolved' ? '处理' : '驳回';
-      alert(`举报已${actionText}`);
+      // 如果是商品举报且处理为"已处理"，同时下架商品
+      if (processAction.value === 'resolved' && selectedReport.value.type === 'product') {
+        const confirm = window.confirm('确定要处理此举报并下架相关商品吗？');
+        if (confirm) {
+          // 这里应该调用下架商品的API
+          // await takeDownProduct(selectedReport.value.targetId);
+          
+          // 模拟下架商品（在实际项目中，这应该通过API调用）
+          console.log(`商品 ID ${selectedReport.value.targetId} 已被下架`);
+          
+          alert('举报已处理，相关商品已下架');
+        } else {
+          return; // 用户取消操作
+        }
+      } else {
+        const actionText = processAction.value === 'resolved' ? '处理' : '驳回';
+        alert(`举报已${actionText}`);
+      }
     } else {
       // 这里应该调用真实的API
       // await processReportById(selectedReport.value.id, processAction.value, processNote.value);
+      
+      // 如果是商品举报且处理为"已处理"，同时下架商品
+      if (processAction.value === 'resolved' && selectedReport.value.type === 'product') {
+        // await takeDownProduct(selectedReport.value.targetId);
+      }
     }
     
     closeProcessDialog();
