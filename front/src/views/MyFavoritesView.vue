@@ -179,7 +179,7 @@ import { useRouter } from 'vue-router';
 import ProductCard from '@/components/ProductCard.vue';
 import { getMyFavorites } from '@/api/users';
 import { unfavoriteProduct as apiUnfavoriteProduct } from '@/api/products';
-import { getCategories } from '@/api/products';
+import { getCategories } from '@/api/categories';
 
 const router = useRouter();
 
@@ -259,7 +259,12 @@ async function loadFavorites() {
 async function loadCategories() {
   try {
     const response = await getCategories();
-    categories.value = response.data || [];
+    if (response.data.status === 'success') {
+      categories.value = response.data.data || [];
+    } else {
+      console.error('Failed to load categories:', response.data.message);
+      categories.value = [];
+    }
   } catch (error) {
     console.error('Failed to load categories:', error);
     categories.value = [];

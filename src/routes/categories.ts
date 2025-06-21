@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
           select: { products: { where: { deleted: false } } }
         }
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { sortOrder: 'desc' }
     });
 
     // 格式化返回数据
@@ -23,6 +23,10 @@ router.get('/', async (req, res) => {
       id: category.id,
       name: category.name,
       description: category.description,
+      icon: category.icon || '📁',
+      isActive: category.isActive,
+      isDefault: category.isDefault,
+      sortOrder: category.sortOrder,
       productCount: category._count.products,
       createdAt: category.createdAt.toISOString(),
       updatedAt: category.updatedAt.toISOString()
@@ -38,7 +42,7 @@ router.get('/', async (req, res) => {
 // 创建分类（管理员功能）
 router.post('/', async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, icon, isActive, sortOrder } = req.body;
 
     if (!name || name.trim() === '') {
       return res.status(400).json(badRequest('分类名称不能为空'));
@@ -62,7 +66,10 @@ router.post('/', async (req, res) => {
     const newCategory = await prisma.category.create({
       data: {
         name: name.trim(),
-        description: description ? description.trim() : null
+        description: description ? description.trim() : null,
+        icon: icon || '📁',
+        isActive: isActive !== undefined ? isActive : true,
+        sortOrder: sortOrder || 0
       }
     });
 
@@ -70,6 +77,10 @@ router.post('/', async (req, res) => {
       id: newCategory.id,
       name: newCategory.name,
       description: newCategory.description,
+      icon: newCategory.icon,
+      isActive: newCategory.isActive,
+      isDefault: newCategory.isDefault,
+      sortOrder: newCategory.sortOrder,
       productCount: 0,
       createdAt: newCategory.createdAt.toISOString(),
       updatedAt: newCategory.updatedAt.toISOString()

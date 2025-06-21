@@ -126,7 +126,8 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import ProductCard from '@/components/ProductCard.vue';
-import { getProducts, getCategories } from '@/api/products';
+import { getProducts } from '@/api/products';
+import { getCategories } from '@/api/categories';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -212,7 +213,12 @@ async function loadProducts() {
 async function loadCategories() {
   try {
     const response = await getCategories();
-    categories.value = response.data || [];
+    if (response.data.status === 'success') {
+      categories.value = response.data.data || [];
+    } else {
+      console.error('Failed to load categories:', response.data.message);
+      categories.value = [];
+    }
   } catch (error) {
     console.error('Failed to load categories:', error);
     // 使用备用的默认分类
