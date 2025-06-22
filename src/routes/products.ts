@@ -38,8 +38,12 @@ router.get('/', optionalAuth, async (req, res) => {
       ];
     }
 
+    // 如果指定了status参数则使用，否则默认只显示在售商品
     if (status) {
       where.status = status;
+    } else {
+      // 对于普通用户（首页），只显示在售商品
+      where.status = '在售';
     }
 
     // 构建排序条件
@@ -110,7 +114,14 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
     // 查询商品并增加浏览量
     const product = await prisma.product.findUnique({
-      where: { id, deleted: false },
+      where: { 
+        id, 
+        deleted: false,
+        // 排除已下架的商品，但允许访问已售出的商品
+        NOT: {
+          status: '已下架'
+        }
+      },
       include: {
         category: true,
         seller: {

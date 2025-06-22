@@ -228,6 +228,28 @@ router.post('/users/:userId/status/update', requireAdmin, async (req, res) => {
   }
 });
 
+// 获取商品统计信息
+router.get('/products/stats', requireAdmin, async (req, res) => {
+  try {
+    const [total, active, sold, removed] = await Promise.all([
+      prisma.product.count({ where: { deleted: false } }),
+      prisma.product.count({ where: { deleted: false, status: '在售' } }),
+      prisma.product.count({ where: { deleted: false, status: '已售出' } }),
+      prisma.product.count({ where: { deleted: false, status: '已下架' } })
+    ]);
+
+    return res.json(success('获取商品统计成功', {
+      total,
+      active,
+      sold,
+      removed
+    }));
+  } catch (err) {
+    console.error('Get products stats error:', err);
+    return res.status(500).json(error('获取统计信息失败'));
+  }
+});
+
 // 获取商品管理列表
 router.get('/products', requireAdmin, async (req, res) => {
   try {
@@ -277,6 +299,8 @@ router.get('/products', requireAdmin, async (req, res) => {
       price: product.price,
       status: product.status,
       viewCount: product.viewCount,
+      images: product.images ? JSON.parse(product.images) : [], // 解析图片JSON数据
+      categoryId: product.categoryId, // 添加分类ID
       createdAt: product.createdAt.toISOString(),
       seller: product.seller,
       category: product.category
@@ -297,8 +321,75 @@ router.get('/products', requireAdmin, async (req, res) => {
   }
 });
 
-// 删除商品
+// 下架商品
 router.post('/products/:productId/remove', requireAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { reason } = req.body;
+
+    // 检查商品是否存在
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!product || product.deleted) {
+      return res.status(404).json(error('商品不存在'));
+    }
+
+    // 只下架商品，不软删除
+    await prisma.product.update({
+      where: { id: productId },
+      data: { 
+        status: '已下架'
+      }
+    });
+
+    // TODO: 发送通知给商品发布者
+
+    return res.json(success('商品下架成功'));
+  } catch (err) {
+    console.error('Remove product error:', err);
+    return res.status(500).json(error('下架商品失败'));
+  }
+});
+
+// 恢复商品
+router.post('/products/:productId/restore', requireAdmin, async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    // 检查商品是否存在
+    const product = await prisma.product.findUnique({
+      where: { id: productId }
+    });
+
+    if (!product || product.deleted) {
+      return res.status(404).json(error('商品不存在'));
+    }
+
+    if (product.status !== '已下架') {
+      return res.status(400).json(error('只能恢复已下架的商品'));
+    }
+
+    // 恢复商品
+    await prisma.product.update({
+      where: { id: productId },
+      data: { 
+        status: '在售'
+      }
+    });
+
+    // TODO: 发送通知给商品发布者
+
+    return res.json(success('商品恢复成功'));
+  } catch (err) {
+    console.error('Restore product error:', err);
+    return res.status(500).json(error('恢复商品失败'));
+  }
+});
+
+// 彻底删除商品
+router.post('/products/:productId/delete', requireAdmin, async (req, res) => {
   try {
     const { productId } = req.params;
     const { reason } = req.body;
@@ -317,7 +408,7 @@ router.post('/products/:productId/remove', requireAdmin, async (req, res) => {
       where: { id: productId },
       data: { 
         deleted: true,
-        status: '已下架'
+        status: '已删除'
       }
     });
 
@@ -325,7 +416,7 @@ router.post('/products/:productId/remove', requireAdmin, async (req, res) => {
 
     return res.json(success('商品删除成功'));
   } catch (err) {
-    console.error('Remove product error:', err);
+    console.error('Delete product error:', err);
     return res.status(500).json(error('删除商品失败'));
   }
 });

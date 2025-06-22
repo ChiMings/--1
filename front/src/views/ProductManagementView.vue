@@ -102,7 +102,7 @@
         >
           <div class="product-image">
             <img 
-              :src="product.images?.[0] || '/placeholder.jpg'" 
+              :src="getProductImage(product)" 
               :alt="product.name"
               @error="handleImageError"
             />
@@ -170,7 +170,7 @@
       <!-- 分页 -->
       <div v-if="totalPages > 1" class="pagination">
         <button 
-          @click="currentPage = Math.max(1, currentPage - 1)"
+          @click="goToPrevPage()"
           :disabled="currentPage === 1"
           class="btn btn-outline"
         >
@@ -178,11 +178,11 @@
         </button>
         
         <span class="page-info">
-          第 {{ currentPage }} 页，共 {{ totalPages }} 页
+          第 {{ currentPage }} 页，共 {{ totalPages }} 页 (共 {{ totalProducts }} 个商品)
         </span>
         
         <button 
-          @click="currentPage = Math.min(totalPages, currentPage + 1)"
+          @click="goToNextPage()"
           :disabled="currentPage === totalPages"
           class="btn btn-outline"
         >
@@ -202,9 +202,10 @@
         <div class="modal-body">
           <div class="product-info-card">
             <img 
-              :src="selectedProduct?.images?.[0] || '/placeholder.jpg'" 
+              :src="getProductImage(selectedProduct)" 
               :alt="selectedProduct?.name"
               class="product-thumbnail"
+              @error="handleImageError"
             />
             <div class="product-details">
               <div class="product-name">{{ selectedProduct?.name }}</div>
@@ -259,7 +260,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { mockProducts } from '@/utils/mockData';
+import { getAdminProducts, getAdminProductsStats, removeAdminProduct, restoreAdminProduct } from '@/api/admin';
 import { config } from '@/utils/config';
 
 const router = useRouter();
@@ -281,122 +282,104 @@ const selectedProduct = ref(null);
 const removeReason = ref('');
 const customReason = ref('');
 
+// 统计信息
+const productStats = ref({
+  total: 0,
+  active: 0,
+  sold: 0,
+  removed: 0
+});
+
 // 计算属性
 const isAdmin = computed(() => {
   const role = userStore.userInfo?.role;
   return role === '管理员' || role === '超级管理员';
 });
 
-const productStats = computed(() => {
-  const total = products.value.length;
-  const active = products.value.filter(p => p.status === '在售').length;
-  const sold = products.value.filter(p => p.status === '已售出').length;
-  const removed = products.value.filter(p => p.status === '已下架').length;
-  
-  return { total, active, sold, removed };
-});
+// 删除原来的计算属性，改为响应式数据
 
+// 由于使用了真实API，筛选和排序在服务端处理，这里直接返回商品列表
 const filteredProducts = computed(() => {
-  let result = [...products.value];
-  
-  // 搜索筛选
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase();
-    result = result.filter(product => 
-      product.name.toLowerCase().includes(keyword) ||
-      product.description.toLowerCase().includes(keyword)
-    );
-  }
-  
-  // 分类筛选
-  if (selectedCategory.value) {
-    result = result.filter(product => product.categoryId === parseInt(selectedCategory.value));
-  }
-  
-  // 状态筛选
-  if (selectedStatus.value) {
-    result = result.filter(product => product.status === selectedStatus.value);
-  }
-  
-  // 排序
-  result.sort((a, b) => {
-    switch (sortBy.value) {
-      case 'createdAt':
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      case 'price':
-        return b.price - a.price;
-      case 'name':
-        return a.name.localeCompare(b.name);
-      default:
-        return 0;
-    }
-  });
-  
-  return result;
+  return products.value;
 });
 
-const totalPages = computed(() => {
-  return Math.ceil(filteredProducts.value.length / pageSize);
-});
+// 分页信息从API响应中获取
+const totalPages = ref(1);
+const totalProducts = ref(0);
 
+// 直接使用API返回的商品列表，不需要前端分页
 const paginatedProducts = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredProducts.value.slice(start, end);
+  return filteredProducts.value;
 });
-
-// 扩展商品数据（包含已下架商品）
-const extendedProducts = [
-  ...mockProducts,
-  {
-    id: 7,
-    name: '已下架的违规商品',
-    description: '此商品因违反平台规则已被下架',
-    price: 999,
-    categoryId: 6,
-    category: { id: 6, name: '其他' },
-    contact: 'test@example.com',
-    status: '已下架',
-    images: ['https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=400'],
-    seller: {
-      id: 1,
-      nickname: '技术宅',
-      credit: 100
-    },
-    isFavorite: false,
-    createdAt: '2023-10-15T08:00:00Z'
-  }
-];
 
 // 方法
 async function loadProducts() {
   try {
     loading.value = true;
     
-    if (config.useMockData) {
-      products.value = extendedProducts;
-    } else {
-      // 这里应该调用真实的API
-      // const response = await getAdminProducts();
-      // products.value = response.data;
+    // 构建查询参数
+    const params = {
+      page: currentPage.value,
+      limit: pageSize,
+      search: searchKeyword.value || undefined,
+      categoryId: selectedCategory.value || undefined,
+      status: selectedStatus.value || undefined
+    };
+
+    const response = await getAdminProducts(params);
+    console.log('商品管理API响应:', response);
+    
+    // 根据记忆处理嵌套的API响应结构
+    const apiData = response.data.data || response.data;
+    products.value = apiData.products || apiData.items || [];
+    
+    // 更新分页信息
+    const pagination = apiData.pagination;
+    if (pagination) {
+      totalPages.value = pagination.totalPages || 1;
+      totalProducts.value = pagination.total || 0;
     }
+    
+    console.log('处理后的商品列表:', products.value);
   } catch (error) {
     console.error('Failed to load products:', error);
+    products.value = [];
   } finally {
     loading.value = false;
   }
 }
 
+async function loadProductStats() {
+  try {
+    const response = await getAdminProductsStats();
+    console.log('统计API响应:', response);
+    
+    // 根据记忆处理嵌套的API响应结构
+    const apiData = response.data.data || response.data;
+    productStats.value = {
+      total: apiData.total || 0,
+      active: apiData.active || 0,
+      sold: apiData.sold || 0,
+      removed: apiData.removed || 0
+    };
+  } catch (error) {
+    console.error('Failed to load product stats:', error);
+  }
+}
+
 function searchProducts() {
   currentPage.value = 1;
+  loadProducts();
 }
 
 function filterProducts() {
   currentPage.value = 1;
+  loadProducts();
 }
 
 function sortProducts() {
   currentPage.value = 1;
+  loadProducts();
 }
 
 function refreshProducts() {
@@ -406,6 +389,21 @@ function refreshProducts() {
   sortBy.value = 'createdAt';
   currentPage.value = 1;
   loadProducts();
+  loadProductStats();
+}
+
+function goToPrevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+    loadProducts();
+  }
+}
+
+function goToNextPage() {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+    loadProducts();
+  }
 }
 
 function viewProduct(product) {
@@ -423,17 +421,16 @@ function removeProduct(product) {
   showRemoveDialog.value = true;
 }
 
-function restoreProduct(product) {
+async function restoreProduct(product) {
   if (confirm(`确定要恢复商品 "${product.name}" 吗？`)) {
-    if (config.useMockData) {
-      const index = products.value.findIndex(p => p.id === product.id);
-      if (index !== -1) {
-        products.value[index].status = '在售';
-      }
+    try {
+      await restoreAdminProduct(product.id);
       alert('商品已恢复');
-    } else {
-      // 调用真实API
-      // await restoreProductById(product.id);
+      loadProducts();
+      loadProductStats();
+    } catch (error) {
+      console.error('Failed to restore product:', error);
+      alert('恢复失败，请重试');
     }
   }
 }
@@ -451,19 +448,12 @@ async function confirmRemove() {
   try {
     const reason = removeReason.value === '其他' ? customReason.value : removeReason.value;
     
-    if (config.useMockData) {
-      // 模拟下架操作
-      const index = products.value.findIndex(p => p.id === selectedProduct.value.id);
-      if (index !== -1) {
-        products.value[index].status = '已下架';
-      }
-      alert(`商品已下架\n原因：${reason}`);
-    } else {
-      // 这里应该调用真实的API
-      // await removeProductById(selectedProduct.value.id, reason);
-    }
+    await removeAdminProduct(selectedProduct.value.id, reason);
+    alert(`商品已下架\n原因：${reason}`);
     
     closeRemoveDialog();
+    loadProducts();
+    loadProductStats();
   } catch (error) {
     console.error('Failed to remove product:', error);
     alert('下架失败，请重试');
@@ -485,15 +475,22 @@ function canRestoreProduct(product) {
 
 // 工具函数
 function getCategoryName(categoryId) {
+  // 优先使用商品对象中的分类信息
+  const product = products.value.find(p => p.categoryId === categoryId);
+  if (product && product.category && product.category.name) {
+    return product.category.name;
+  }
+  
+  // 兜底分类映射 
   const categories = {
-    1: '电子产品',
-    2: '书籍教材',
-    3: '生活用品',
-    4: '服装饰品',
-    5: '体育用品',
-    6: '其他'
+    '1': '电子产品',
+    '2': '书籍教材', 
+    '3': '生活用品',
+    '4': '服装饰品',
+    '5': '体育用品',
+    '6': '其他'
   };
-  return categories[categoryId] || '未知';
+  return categories[String(categoryId)] || '未知';
 }
 
 function getStatusClass(status) {
@@ -509,31 +506,43 @@ function getShortDescription(description) {
   return description.length > 60 ? description.substring(0, 60) + '...' : description;
 }
 
-function formatDate(dateString) {
-  if (!dateString) return '';
-  
-  const date = new Date(dateString);
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-}
-
-function handleImageError(event) {
-  event.target.src = '/placeholder.jpg';
-}
-
-// 组件挂载
-onMounted(() => {
-  if (!isAdmin.value) {
-    alert('您没有权限访问此页面');
-    router.push('/admin/dashboard');
-    return;
+  function formatDate(dateString) {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
   }
-  
-  loadProducts();
-});
+
+  function getProductImage(product) {
+    if (!product || !product.images || !Array.isArray(product.images) || product.images.length === 0) {
+      // 返回默认的SVG占位图片
+      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
+    }
+    return product.images[0];
+  }
+
+  function handleImageError(event) {
+    // 使用SVG占位图片，避免无限加载
+    event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
+    // 移除事件监听器，防止重复触发
+    event.target.onerror = null;
+  }
+
+  // 组件挂载时加载数据
+  onMounted(() => {
+    if (!isAdmin.value) {
+      alert('您没有权限访问此页面');
+      router.push('/admin/dashboard');
+      return;
+    }
+    
+    loadProducts();
+    loadProductStats();
+  });
 </script>
 
 <style scoped>

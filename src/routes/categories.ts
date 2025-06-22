@@ -307,8 +307,12 @@ router.get('/:id/products', async (req, res) => {
       ];
     }
 
+    // 如果指定了status参数则使用，否则默认只显示在售商品
     if (status) {
       where.status = status;
+    } else {
+      // 对于普通用户，只显示在售商品
+      where.status = '在售';
     }
 
     // 构建排序条件
