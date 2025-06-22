@@ -231,6 +231,19 @@
               <input 
                 v-model="newRole" 
                 type="radio" 
+                value="未认证用户"
+                :disabled="!canSetRole('未认证用户')"
+              />
+              <span class="role-label">
+                <span class="role-name">未认证用户</span>
+                <span class="role-desc">待认证状态，功能受限</span>
+              </span>
+            </label>
+            
+            <label class="role-option">
+              <input 
+                v-model="newRole" 
+                type="radio" 
                 value="认证用户"
                 :disabled="!canSetRole('认证用户')"
               />
@@ -252,7 +265,6 @@
                 <span class="role-desc">商品和评论管理权限</span>
               </span>
             </label>
-            
 
           </div>
           
@@ -511,7 +523,24 @@ async function confirmRoleChange() {
 }
 
 function sendMessage(user) {
-  router.push('/user/messages');
+  if (!userStore.userInfo) {
+    router.push('/login');
+    return;
+  }
+  
+  if (!user) {
+    alert('用户信息获取失败');
+    return;
+  }
+  
+  // 跳转到私信页面，并自动开启与该用户的对话
+  router.push({
+    name: 'MyMessages',
+    query: {
+      userId: user.id,
+      nickname: user.nickname || user.name
+    }
+  });
 }
 
 function resetUserPassword(user) {
@@ -540,8 +569,8 @@ function canSetRole(role) {
     return false;
   }
   
-  // 只有超级管理员可以设置认证用户和管理员
-  if (currentUserRole === '超级管理员' && (role === '认证用户' || role === '管理员')) {
+  // 只有超级管理员可以设置所有非超级管理员角色
+  if (currentUserRole === '超级管理员' && (role === '未认证用户' || role === '认证用户' || role === '管理员')) {
     return true;
   }
   
