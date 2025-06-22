@@ -39,17 +39,19 @@
               <button 
                 type="button"
                 @click="$refs.avatarInput.click()"
+                :disabled="updatingProfile"
                 class="btn btn-outline-primary btn-sm"
               >
-                {{ userInfo?.avatar ? '更换头像' : '上传头像' }}
+                {{ updatingProfile ? '处理中...' : (userInfo?.avatar ? '更换头像' : '上传头像') }}
               </button>
               <button 
                 v-if="userInfo?.avatar"
                 type="button"
                 @click="removeAvatar"
+                :disabled="updatingProfile"
                 class="btn btn-outline-danger btn-sm"
               >
-                删除头像
+                {{ updatingProfile ? '删除中...' : '删除头像' }}
               </button>
             </div>
             
@@ -268,6 +270,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
 import { updateUserInfo } from '@/api/users';
+import { uploadAvatar } from '@/api/upload';
 
 const userStore = useUserStore();
 
@@ -344,10 +347,13 @@ async function updateProfile() {
       contact: profileForm.contact.trim(),
     };
     
-    await updateUserInfo(updateData);
+    const response = await updateUserInfo(updateData);
+    
+    // 处理API响应数据结构
+    const apiData = response.data.data || response.data;
     
     // 更新store中的用户信息
-    Object.assign(userStore.userInfo, updateData);
+    Object.assign(userStore.userInfo, apiData);
     
     successMessage.value = '个人信息更新成功';
     setTimeout(() => {
@@ -416,62 +422,92 @@ async function handleAvatarUpload(event) {
   if (!file) return
   
   // 验证文件类型
-  if (!file.type.startsWith('image/')) {
-    error.value = '请选择图片文件'
+  if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+    error.value = '头像只支持 JPG、PNG、GIF 格式'
     return
   }
   
   // 验证文件大小（2MB）
   if (file.size > 2 * 1024 * 1024) {
-    error.value = '图片文件大小不能超过 2MB'
+    error.value = '头像文件大小不能超过 2MB'
     return
   }
   
   try {
     error.value = ''
+    updatingProfile.value = true
     
-    // 使用 FileReader 预览图片
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      // 更新用户头像
-      profileForm.avatar = e.target.result
-      
-      // 立即更新到用户信息中
-      if (userStore.userInfo) {
-        userStore.userInfo.avatar = e.target.result
-        // 保存到 localStorage
-        localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
-      }
-      
-      successMessage.value = '头像更新成功'
-      setTimeout(() => {
-        successMessage.value = ''
-      }, 3000)
+    // 1. 先上传头像文件
+    const uploadResponse = await uploadAvatar(file);
+    
+    if (uploadResponse.data.status !== 'success') {
+      throw new Error(uploadResponse.data.message || '头像上传失败');
     }
     
-    reader.readAsDataURL(file)
+    const avatarUrl = uploadResponse.data.data.url;
+    
+    // 2. 更新用户头像URL到数据库
+    const updateResponse = await updateUserInfo({ avatar: avatarUrl });
+    
+    // 处理API响应数据结构
+    const apiData = updateResponse.data.data || updateResponse.data;
+    
+    // 更新本地数据
+    profileForm.avatar = avatarUrl
+    
+    if (userStore.userInfo) {
+      Object.assign(userStore.userInfo, apiData);
+      localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+    }
+    
+    successMessage.value = '头像更新成功'
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 3000)
+    
+    // 清空文件输入
+    event.target.value = ''
     
   } catch (err) {
     console.error('头像上传失败:', err)
-    error.value = '头像上传失败，请重试'
+    error.value = err.response?.data?.message || err.message || '头像上传失败，请重试'
+  } finally {
+    updatingProfile.value = false
   }
 }
 
 // 删除头像
-function removeAvatar() {
+async function removeAvatar() {
   if (!confirm('确定要删除头像吗？')) return
   
-  profileForm.avatar = ''
-  
-  if (userStore.userInfo) {
-    userStore.userInfo.avatar = ''
-    localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+  try {
+    error.value = ''
+    updatingProfile.value = true
+    
+    // 更新头像到后端（设为null）
+    const response = await updateUserInfo({ avatar: null });
+    
+    // 处理API响应数据结构
+    const apiData = response.data.data || response.data;
+    
+    // 更新本地数据
+    profileForm.avatar = ''
+    
+    if (userStore.userInfo) {
+      Object.assign(userStore.userInfo, apiData);
+      localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+    }
+    
+    successMessage.value = '头像删除成功'
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 3000)
+  } catch (err) {
+    console.error('删除头像失败:', err)
+    error.value = err.response?.data?.message || '删除头像失败，请重试'
+  } finally {
+    updatingProfile.value = false
   }
-  
-  successMessage.value = '头像删除成功'
-  setTimeout(() => {
-    successMessage.value = ''
-  }, 3000)
 }
 
 // 工具函数

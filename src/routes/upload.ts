@@ -3,13 +3,18 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { success, error, badRequest } from '../utils/response';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // 确保上传目录存在
 const uploadDir = path.join(process.cwd(), 'uploads');
+const headDir = path.join(uploadDir, 'head');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
+}
+if (!fs.existsSync(headDir)) {
+  fs.mkdirSync(headDir, { recursive: true });
 }
 
 // 配置multer
@@ -41,6 +46,62 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB限制
     files: 5 // 最多5个文件
+  }
+});
+
+// 头像专用存储配置
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, headDir);
+  },
+  filename: (req, file, cb) => {
+    // 为头像生成唯一文件名
+    const userId = req.user?.id || 'unknown';
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname);
+    cb(null, `avatar-${userId}-${timestamp}${ext}`);
+  }
+});
+
+// 头像文件过滤器（更严格的限制）
+const avatarFilter = (req: any, file: any, cb: any) => {
+  // 只允许常见的图片格式
+  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/gif') {
+    cb(null, true);
+  } else {
+    cb(new Error('头像只支持 JPG、PNG、GIF 格式'), false);
+  }
+};
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  fileFilter: avatarFilter,
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 头像限制2MB
+    files: 1 // 只能上传一个文件
+  }
+});
+
+// 头像上传
+router.post('/avatar', authenticateToken, avatarUpload.single('avatar'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json(badRequest('请选择头像文件'));
+    }
+
+    const fileInfo = {
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype,
+      url: `/uploads/head/${req.file.filename}`,
+      uploadedAt: new Date().toISOString()
+    };
+
+    return res.json(success('头像上传成功', fileInfo));
+  } catch (err) {
+    console.error('头像上传失败:', err);
+    return res.status(500).json(error('头像上传失败'));
   }
 });
 

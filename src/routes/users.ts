@@ -91,6 +91,67 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// 更新当前用户信息
+router.post('/me/update', authenticateToken, async (req, res) => {
+  try {
+    const { nickname, contact, avatar } = req.body;
+    const userId = req.user!.id;
+
+    // 验证输入
+    if (nickname && nickname.length > 20) {
+      return res.status(400).json(error('昵称长度不能超过20个字符'));
+    }
+
+    if (contact && contact.length > 50) {
+      return res.status(400).json(error('联系方式长度不能超过50个字符'));
+    }
+
+    // 构建更新数据
+    const updateData: any = {};
+    if (nickname !== undefined) updateData.nickname = nickname.trim();
+    if (contact !== undefined) updateData.contact = contact.trim();
+    if (avatar !== undefined) {
+      // 支持头像URL或空字符串（删除头像）
+      updateData.avatar = avatar || null;
+    }
+
+    // 更新用户信息
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        studentId: true,
+        name: true,
+        nickname: true,
+        role: true,
+        avatar: true,
+        contact: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    // 处理返回数据
+    const userInfo = {
+      id: updatedUser.id,
+      studentId: updatedUser.studentId,
+      name: updatedUser.name,
+      nickname: updatedUser.nickname,
+      role: updatedUser.role,
+      avatar: updatedUser.avatar,
+      contact: updatedUser.contact,
+      isActive: updatedUser.status === '正常',
+      createdAt: updatedUser.createdAt.toISOString()
+    };
+
+    return res.json(success('个人信息更新成功', userInfo));
+  } catch (err) {
+    console.error('更新用户信息失败:', err);
+    return res.status(500).json(error('更新失败'));
+  }
+});
+
 // 获取当前用户的商品
 router.get('/me/products', authenticateToken, async (req, res) => {
   try {
