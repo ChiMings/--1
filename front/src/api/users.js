@@ -183,4 +183,215 @@ export function getMyFavorites(params = {}) {
     method: 'get',
     params,
   });
+}
+
+/**
+ * 管理员获取用户统计信息
+ */
+export function getAdminUsersStats() {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 简单的模拟统计
+        resolve({ 
+          data: { 
+            total: 8, 
+            verified: 3, 
+            unverified: 3, 
+            admins: 2 
+          } 
+        });
+      }, 200);
+    });
+  }
+  
+  return request({
+    url: '/admin/users/stats',
+    method: 'get',
+  });
+}
+
+/**
+ * 管理员获取用户列表
+ * @param {object} params 查询参数
+ */
+export function getAdminUsersList(params = {}) {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const { page = 1, limit = 20, search, role, status } = params;
+        
+        // 扩展模拟数据
+        const extendedUsers = [
+          ...mockUsers,
+          {
+            id: 6,
+            studentId: '20210004',
+            name: '赵六',
+            nickname: '数码控',
+            contact: '13800138004',
+            role: '未认证用户',
+            credit: 0,
+            status: '正常',
+            createdAt: '2023-11-01T08:00:00Z',
+            updatedAt: '2023-11-01T08:00:00Z'
+          },
+          {
+            id: 7,
+            studentId: '20210005',
+            name: '钱七',
+            nickname: '待认证用户',
+            contact: '13800138005',
+            role: '未认证用户',
+            credit: 0,
+            status: '正常',
+            createdAt: '2023-10-30T20:15:00Z',
+            updatedAt: '2023-10-30T20:15:00Z'
+          },
+          {
+            id: 8,
+            studentId: '20210006',
+            name: '孙八',
+            nickname: '学习委员',
+            contact: '13800138006',
+            role: '认证用户',
+            credit: 75,
+            status: '正常',
+            createdAt: '2023-08-01T00:00:00Z',
+            updatedAt: '2023-08-01T00:00:00Z'
+          }
+        ];
+        
+        let filteredUsers = [...extendedUsers];
+        
+        // 搜索筛选
+        if (search) {
+          const keyword = search.toLowerCase();
+          filteredUsers = filteredUsers.filter(user => 
+            user.nickname?.toLowerCase().includes(keyword) ||
+            user.name?.toLowerCase().includes(keyword) ||
+            user.studentId?.includes(keyword)
+          );
+        }
+        
+        // 角色筛选
+        if (role) {
+          filteredUsers = filteredUsers.filter(user => user.role === role);
+        }
+        
+        // 状态筛选
+        if (status) {
+          filteredUsers = filteredUsers.filter(user => user.status === status);
+        }
+        
+        // 分页
+        const paginatedData = paginateArray(filteredUsers, page, limit);
+        resolve({ data: paginatedData });
+      }, 500);
+    });
+  }
+  
+  return request({
+    url: '/admin/users',
+    method: 'get',
+    params,
+  });
+}
+
+/**
+ * 管理员更新用户角色
+ * @param {string} userId 用户ID
+ * @param {string} role 新角色
+ */
+export function updateUserRole(userId, role) {
+  if (config.useMockData) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // 模拟角色更新
+        const userIndex = mockUsers.findIndex(u => u.id === parseInt(userId));
+        if (userIndex !== -1) {
+          mockUsers[userIndex].role = role;
+          resolve({ 
+            data: { 
+              success: true, 
+              message: '用户角色更新成功',
+              user: mockUsers[userIndex]
+            } 
+          });
+        } else {
+          reject(new Error('用户不存在'));
+        }
+      }, 400);
+    });
+  }
+  
+  return request({
+    url: `/admin/users/${userId}/role/update`,
+    method: 'post',
+    data: { role },
+  });
+}
+
+/**
+ * 管理员更新用户状态
+ * @param {string} userId 用户ID
+ * @param {string} status 新状态
+ */
+export function updateUserStatus(userId, status) {
+  if (config.useMockData) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        // 模拟状态更新
+        const userIndex = mockUsers.findIndex(u => u.id === parseInt(userId));
+        if (userIndex !== -1) {
+          mockUsers[userIndex].status = status;
+          resolve({ 
+            data: { 
+              success: true, 
+              message: '用户状态更新成功',
+              user: mockUsers[userIndex]
+            } 
+          });
+        } else {
+          reject(new Error('用户不存在'));
+        }
+      }, 400);
+    });
+  }
+  
+  return request({
+    url: `/admin/users/${userId}/status/update`,
+    method: 'post',
+    data: { status },
+  });
+}
+
+/**
+ * 获取用户详细信息
+ * @param {string} userId 用户ID
+ */
+export function getUserProfile(userId) {
+  if (config.useMockData) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const user = getUserById(parseInt(userId));
+        if (user) {
+          const products = getProductsByUserId(parseInt(userId));
+          resolve({ 
+            data: {
+              user,
+              products
+            }
+          });
+        } else {
+          reject(new Error('用户不存在'));
+        }
+      }, 300);
+    });
+  }
+  
+  return request({
+    url: `/users/${userId}`,
+    method: 'get',
+  });
 } 

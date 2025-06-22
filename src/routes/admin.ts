@@ -55,6 +55,29 @@ router.get('/stats', requireAdmin, async (req, res) => {
   }
 });
 
+// 获取用户统计信息
+router.get('/users/stats', requireAdmin, async (req, res) => {
+  try {
+    const [total, verified, unverified, admins, superAdmins] = await Promise.all([
+      prisma.user.count({ where: { deleted: false } }),
+      prisma.user.count({ where: { deleted: false, role: '认证用户' } }),
+      prisma.user.count({ where: { deleted: false, role: '未认证用户' } }),
+      prisma.user.count({ where: { deleted: false, role: '管理员' } }),
+      prisma.user.count({ where: { deleted: false, role: '超级管理员' } })
+    ]);
+
+    return res.json(success('获取用户统计成功', {
+      total,
+      verified,
+      unverified,
+      admins: admins + superAdmins
+    }));
+  } catch (err) {
+    console.error('Get user stats error:', err);
+    return res.status(500).json(error('获取用户统计失败'));
+  }
+});
+
 // 获取用户管理列表
 router.get('/users', requireAdmin, async (req, res) => {
   try {

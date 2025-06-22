@@ -157,6 +157,15 @@
                   </button>
                   
                   <button 
+                    v-if="canToggleStatus(user)"
+                    @click="toggleUserStatus(user)"
+                    :class="['btn', 'btn-sm', user.status === '正常' ? 'btn-warning' : 'btn-success']"
+                    :title="user.status === '正常' ? '禁用用户' : '启用用户'"
+                  >
+                    {{ user.status === '正常' ? '🚫' : '✅' }}
+                  </button>
+                  
+                  <button 
                     v-if="canResetPassword(user)"
                     @click="resetUserPassword(user)"
                     class="btn btn-sm btn-warning"
@@ -182,7 +191,7 @@
         </button>
         
         <span class="page-info">
-          第 {{ currentPage }} 页，共 {{ totalPages }} 页
+          第 {{ currentPage }} 页，共 {{ totalPages }} 页（总计 {{ totalUsers }} 个用户）
         </span>
         
         <button 
@@ -268,10 +277,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { mockUsers } from '@/utils/mockData';
+import { getAdminUsersList, getAdminUsersStats, updateUserRole, updateUserStatus } from '@/api/users';
 import { config } from '@/utils/config';
 
 const router = useRouter();
@@ -285,6 +294,9 @@ const selectedRole = ref('');
 const sortBy = ref('createdAt');
 const currentPage = ref(1);
 const pageSize = 20;
+const totalUsers = ref(0);
+const totalPages = ref(0);
+const statsData = ref({ total: 0, verified: 0, unverified: 0, admins: 0 });
 
 // 角色修改弹窗
 const showRoleDialog = ref(false);
@@ -297,110 +309,132 @@ const isSuperAdmin = computed(() => {
 });
 
 const userStats = computed(() => {
-  const total = users.value.length;
-  const verified = users.value.filter(u => u.role === '认证用户').length;
-  const unverified = users.value.filter(u => u.role === '未认证用户').length;
-  const admins = users.value.filter(u => u.role === '管理员' || u.role === '超级管理员').length;
-  
-  return { total, verified, unverified, admins };
+  return statsData.value;
 });
 
+// 模拟数据和实际API数据使用不同的分页逻辑
 const filteredUsers = computed(() => {
-  let result = [...users.value];
-  
-  // 搜索筛选
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase();
-    result = result.filter(user => 
-      user.nickname?.toLowerCase().includes(keyword) ||
-      user.name?.toLowerCase().includes(keyword) ||
-      user.studentId?.includes(keyword)
-    );
-  }
-  
-  // 角色筛选
-  if (selectedRole.value) {
-    result = result.filter(user => user.role === selectedRole.value);
-  }
-  
-  // 排序
-  result.sort((a, b) => {
-    switch (sortBy.value) {
-      case 'createdAt':
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      case 'credit':
-        return (b.credit || 0) - (a.credit || 0);
-      case 'nickname':
-        return (a.nickname || a.name).localeCompare(b.nickname || b.name);
-      case 'studentId':
-        return a.studentId.localeCompare(b.studentId);
-      default:
-        return 0;
+  if (config.useMockData) {
+    // 模拟数据需要前端筛选和排序
+    let result = [...users.value];
+    
+    // 搜索筛选
+    if (searchKeyword.value) {
+      const keyword = searchKeyword.value.toLowerCase();
+      result = result.filter(user => 
+        user.nickname?.toLowerCase().includes(keyword) ||
+        user.name?.toLowerCase().includes(keyword) ||
+        user.studentId?.includes(keyword)
+      );
     }
-  });
-  
-  return result;
-});
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredUsers.value.length / pageSize);
+    
+    // 角色筛选
+    if (selectedRole.value) {
+      result = result.filter(user => user.role === selectedRole.value);
+    }
+    
+    // 排序
+    result.sort((a, b) => {
+      switch (sortBy.value) {
+        case 'createdAt':
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        case 'credit':
+          return (b.credit || 0) - (a.credit || 0);
+        case 'nickname':
+          return (a.nickname || a.name).localeCompare(b.nickname || b.name);
+        case 'studentId':
+          return a.studentId.localeCompare(b.studentId);
+        default:
+          return 0;
+      }
+    });
+    
+    return result;
+  } else {
+    // 真实API数据已经在后端筛选和排序
+    return users.value;
+  }
 });
 
 const paginatedUsers = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredUsers.value.slice(start, end);
+  if (config.useMockData) {
+    // 模拟数据需要前端分页
+    const start = (currentPage.value - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredUsers.value.slice(start, end);
+  } else {
+    // 真实API数据已经分页
+    return users.value;
+  }
 });
 
-// 模拟扩展用户数据
-const extendedUsers = [
-  ...mockUsers,
-  {
-    id: 6,
-    studentId: '20210004',
-    name: '赵六',
-    nickname: '数码控',
-    contact: '13800138004',
-    role: '未认证用户',
-    credit: 0,
-    createdAt: '2023-11-01T08:00:00Z'
-  },
-  {
-    id: 7,
-    studentId: '20210005',
-    name: '钱七',
-    nickname: '待认证用户',
-    contact: '13800138005',
-    role: '未认证用户',
-    credit: 0,
-    createdAt: '2023-10-30T20:15:00Z'
-  },
-  {
-    id: 8,
-    studentId: '20210006',
-    name: '孙八',
-    nickname: '学习委员',
-    contact: '13800138006',
-    role: '认证用户',
-    credit: 75,
-    createdAt: '2023-08-01T00:00:00Z'
+// 监听搜索和筛选条件变化，自动重新加载数据
+watch([searchKeyword, selectedRole, sortBy, currentPage], () => {
+  if (!config.useMockData) {
+    loadUsers();
   }
-];
+}, { deep: true });
+
+// 加载用户统计数据
+async function loadUserStats() {
+  try {
+    const response = await getAdminUsersStats();
+    if (config.useMockData) {
+      statsData.value = response.data || { total: 0, verified: 0, unverified: 0, admins: 0 };
+    } else {
+      // 真实API数据结构：response.data.data
+      const apiData = response.data.data || response.data;
+      statsData.value = apiData || { total: 0, verified: 0, unverified: 0, admins: 0 };
+    }
+    
+    console.log('加载用户统计成功:', {
+      原始响应: response.data,
+      统计数据: statsData.value
+    });
+  } catch (error) {
+    console.error('Failed to load user stats:', error);
+  }
+}
 
 // 方法
 async function loadUsers() {
   try {
     loading.value = true;
     
+    const params = {
+      page: currentPage.value,
+      limit: pageSize,
+      search: searchKeyword.value || undefined,
+      role: selectedRole.value || undefined,
+      sortBy: sortBy.value || 'createdAt'
+    };
+    
+    const response = await getAdminUsersList(params);
+    
     if (config.useMockData) {
-      users.value = extendedUsers;
+      // 模拟数据结构
+      users.value = response.data.data || response.data || [];
+      totalUsers.value = users.value.length;
+      totalPages.value = Math.ceil(totalUsers.value / pageSize);
     } else {
-      // 这里应该调用真实的API
-      // const response = await getUsersList();
-      // users.value = response.data;
+      // 真实API数据结构：response.data.data.users
+      const apiData = response.data.data || response.data;
+      users.value = apiData.users || [];
+      totalUsers.value = apiData.pagination?.total || 0;
+      totalPages.value = apiData.pagination?.totalPages || 1;
     }
+    
+    console.log('加载用户数据成功:', {
+      原始响应: response.data,
+      解析后用户数量: users.value.length,
+      总用户数: totalUsers.value,
+      总页数: totalPages.value,
+      用户数据: users.value.slice(0, 2) // 只显示前两个用户以避免日志过长
+    });
+    
   } catch (error) {
     console.error('Failed to load users:', error);
+    alert('加载用户列表失败，请检查网络连接');
   } finally {
     loading.value = false;
   }
@@ -408,14 +442,23 @@ async function loadUsers() {
 
 function searchUsers() {
   currentPage.value = 1;
+  if (!config.useMockData) {
+    loadUsers();
+  }
 }
 
 function filterUsers() {
   currentPage.value = 1;
+  if (!config.useMockData) {
+    loadUsers();
+  }
 }
 
 function sortUsers() {
   currentPage.value = 1;
+  if (!config.useMockData) {
+    loadUsers();
+  }
 }
 
 function refreshUsers() {
@@ -424,6 +467,7 @@ function refreshUsers() {
   sortBy.value = 'createdAt';
   currentPage.value = 1;
   loadUsers();
+  loadUserStats();
 }
 
 function viewUserProfile(user) {
@@ -446,22 +490,23 @@ async function confirmRoleChange() {
   if (!selectedUser.value || !newRole.value) return;
   
   try {
-    if (config.useMockData) {
-      // 模拟角色修改
-      const userIndex = users.value.findIndex(u => u.id === selectedUser.value.id);
-      if (userIndex !== -1) {
-        users.value[userIndex].role = newRole.value;
-      }
-      alert(`用户 "${selectedUser.value.nickname || selectedUser.value.name}" 的角色已修改为 "${newRole.value}"`);
-    } else {
-      // 这里应该调用真实的API
-      // await updateUserRole(selectedUser.value.id, newRole.value);
+    const response = await updateUserRole(selectedUser.value.id, newRole.value);
+    
+    // 更新本地数据
+    const userIndex = users.value.findIndex(u => u.id === selectedUser.value.id);
+    if (userIndex !== -1) {
+      users.value[userIndex].role = newRole.value;
     }
     
+    alert(`用户 "${selectedUser.value.nickname || selectedUser.value.name}" 的角色已修改为 "${newRole.value}"`);
     closeRoleModal();
+    
+    // 重新加载数据以确保同步
+    loadUsers();
+    
   } catch (error) {
     console.error('Failed to update user role:', error);
-    alert('修改角色失败，请重试');
+    alert('修改角色失败：' + (error.response?.data?.message || error.message));
   }
 }
 
@@ -507,8 +552,38 @@ function canSendMessage(user) {
   return user.id !== userStore.userInfo?.id;
 }
 
+function canToggleStatus(user) {
+  return isSuperAdmin.value && user.id !== userStore.userInfo?.id;
+}
+
 function canResetPassword(user) {
   return isSuperAdmin.value && user.id !== userStore.userInfo?.id;
+}
+
+async function toggleUserStatus(user) {
+  const newStatus = user.status === '正常' ? '禁用' : '正常';
+  const action = newStatus === '正常' ? '启用' : '禁用';
+  
+  if (confirm(`确定要${action}用户 "${user.nickname || user.name}" 吗？`)) {
+    try {
+      const response = await updateUserStatus(user.id, newStatus);
+      
+      // 更新本地数据
+      const userIndex = users.value.findIndex(u => u.id === user.id);
+      if (userIndex !== -1) {
+        users.value[userIndex].status = newStatus;
+      }
+      
+      alert(`用户 "${user.nickname || user.name}" 已${action}`);
+      
+      // 重新加载数据以确保同步
+      loadUsers();
+      
+    } catch (error) {
+      console.error('Failed to update user status:', error);
+      alert(`${action}用户失败：` + (error.response?.data?.message || error.message));
+    }
+  }
 }
 
 // 工具函数
@@ -566,6 +641,7 @@ onMounted(() => {
   }
   
   loadUsers();
+  loadUserStats();
 });
 </script>
 
