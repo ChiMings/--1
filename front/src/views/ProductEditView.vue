@@ -36,6 +36,7 @@
                 {{ category.name }}
               </option>
             </select>
+            <div v-if="form.categoryId" class="form-hint">已选择: {{ getCategoryName(form.categoryId) }}</div>
           </div>
 
           <div class="form-group">
@@ -113,6 +114,7 @@
               <p>• 最多上传{{ maxImages }}张图片，第一张为封面图</p>
               <p>• 支持 JPG、PNG、GIF 格式</p>
               <p>• 单张图片不超过5MB</p>
+              <p v-if="uploadingImages" class="uploading-text">📤 正在上传图片...</p>
             </div>
           </div>
         </div>
@@ -182,6 +184,7 @@ import { useUserStore } from '@/store/user';
 import ProductCard from '@/components/ProductCard.vue';
 import { getProductDetail, createProduct, updateProduct } from '@/api/products';
 import { getCategories } from '@/api/categories';
+import { uploadMultipleFiles } from '@/api/upload';
 
 const route = useRoute();
 const router = useRouter();
@@ -193,17 +196,19 @@ const submitting = ref(false);
 const error = ref('');
 const categories = ref([]);
 const imageInput = ref(null);
+const uploadingImages = ref(false);
 
 const maxImages = 5;
 
 // 表单数据
 const form = reactive({
   name: '',
-  categoryId: '',
+  categoryId: null,
   price: '',
   contact: '',
   description: '',
-  images: [],
+  images: [], // 存储图片URL数组
+  imageFiles: [], // 存储待上传的文件
 });
 
 // 计算属性
@@ -292,38 +297,74 @@ function triggerImageUpload() {
   imageInput.value?.click();
 }
 
-function handleImageUpload(event) {
+async function handleImageUpload(event) {
   const files = Array.from(event.target.files || []);
   const remainingSlots = maxImages - form.images.length;
   const filesToProcess = files.slice(0, remainingSlots);
   
-  filesToProcess.forEach(file => {
+  if (filesToProcess.length === 0) {
+    event.target.value = '';
+    return;
+  }
+
+  // 验证文件
+  const validFiles = [];
+  for (const file of filesToProcess) {
     // 检查文件大小
     if (file.size > 5 * 1024 * 1024) {
       alert(`图片 ${file.name} 超过5MB，已跳过`);
-      return;
+      continue;
     }
     
     // 检查文件类型
     if (!file.type.startsWith('image/')) {
       alert(`文件 ${file.name} 不是图片格式，已跳过`);
-      return;
+      continue;
     }
     
-    // 创建预览URL
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      form.images.push(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  });
-  
-  // 清空input
-  event.target.value = '';
+    validFiles.push(file);
+  }
+
+  if (validFiles.length === 0) {
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    uploadingImages.value = true;
+    
+    // 上传文件到服务器
+    const response = await uploadMultipleFiles(validFiles);
+    
+    if (response.data.status === 'success') {
+      const uploadedFiles = response.data.data;
+      
+      // 添加上传成功的图片URL到form.images
+      uploadedFiles.forEach(fileInfo => {
+        // 使用相对路径，利用Vite代理
+        const imageUrl = fileInfo.url; // fileInfo.url 已经是 /uploads/filename 格式
+        form.images.push(imageUrl);
+      });
+    } else {
+      alert('图片上传失败：' + response.data.message);
+    }
+  } catch (err) {
+    console.error('图片上传失败:', err);
+    alert('图片上传失败，请重试');
+  } finally {
+    uploadingImages.value = false;
+    event.target.value = '';
+  }
 }
 
 function removeImage(index) {
   form.images.splice(index, 1);
+}
+
+// 获取分类名称
+function getCategoryName(categoryId) {
+  const category = categories.value.find(c => c.id === categoryId);
+  return category ? category.name : '';
 }
 
 // 表单提交
@@ -336,12 +377,14 @@ async function handleSubmit() {
     
     const submitData = {
       name: form.name.trim(),
-      categoryId: parseInt(form.categoryId),
+      categoryId: form.categoryId, // 保持原始类型，不强制转换
       price: parseFloat(form.price),
       contact: form.contact.trim(),
       description: form.description.trim(),
       images: form.images,
     };
+
+    console.log('提交数据:', submitData); // 调试日志
     
     if (isEditMode.value) {
       await updateProduct(route.params.id, submitData);
@@ -599,6 +642,11 @@ onMounted(() => {
 
 .upload-tips p {
   margin: 4px 0;
+}
+
+.uploading-text {
+  color: #007bff !important;
+  font-weight: 500;
 }
 
 .product-preview {

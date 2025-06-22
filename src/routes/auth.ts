@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
+import { generateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -54,7 +55,7 @@ router.post('/login', async (req, res) => {
     }
 
     // 生成JWT token
-    const token = 'jwt-token-' + user.id + '-' + Date.now();
+    const token = generateToken(user);
 
     // 返回用户信息（不包含密码）
     const userInfo = {

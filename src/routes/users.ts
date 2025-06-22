@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { success, error, notFound } from '../utils/response';
+import { authenticateToken } from '../middleware/auth';
+import { prisma } from '../utils/database';
 
 const router = Router();
 
@@ -101,8 +103,126 @@ router.get('/:id/products', async (req, res) => {
   }
 });
 
+// 获取当前用户信息
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        id: true,
+        studentId: true,
+        name: true,
+        nickname: true,
+        role: true,
+        avatar: true,
+        contact: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json(notFound('用户不存在'));
+    }
+
+    // 处理返回数据
+    const userInfo = {
+      id: user.id,
+      studentId: user.studentId,
+      name: user.name,
+      nickname: user.nickname,
+      role: user.role,
+      avatar: user.avatar,
+      contact: user.contact,
+      isActive: user.status === '正常',
+      createdAt: user.createdAt.toISOString()
+    };
+
+    return res.json(success('获取用户信息成功', userInfo));
+  } catch (err) {
+    console.error('获取用户信息失败:', err);
+    return res.status(500).json(error('获取失败'));
+  }
+});
+
+// 获取当前用户的商品
+router.get('/me/products', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 20, 
+      status, 
+      sortBy = 'createdAt', 
+      order = 'desc' 
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // 构建查询条件
+    const where: any = {
+      sellerId: req.user!.id,
+      deleted: false,
+    };
+
+    if (status) {
+      where.status = status;
+    }
+
+    // 构建排序条件
+    const orderBy: any = {};
+    if (sortBy === 'price') {
+      orderBy.price = order === 'asc' ? 'asc' : 'desc';
+    } else {
+      orderBy.createdAt = order === 'asc' ? 'asc' : 'desc';
+    }
+
+    // 查询商品
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy,
+        include: {
+          category: true,
+          _count: {
+            select: {
+              favorites: true,
+              comments: true
+            }
+          }
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    // 处理图片数据
+    const processedProducts = products.map(product => ({
+      ...product,
+      images: product.images ? JSON.parse(product.images) : [],
+      seller: {
+        id: req.user!.id,
+        nickname: req.user!.studentId, // 临时使用studentId作为nickname
+      }
+    }));
+
+    return res.json(success('获取商品列表成功', {
+      items: processedProducts,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
+    }));
+  } catch (err) {
+    console.error('获取用户商品失败:', err);
+    return res.status(500).json(error('获取失败'));
+  }
+});
+
 // 获取我收藏的商品
-router.get('/me/favorites', async (req, res) => {
+router.get('/me/favorites', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
 
