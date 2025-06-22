@@ -99,11 +99,36 @@
               >
                 {{ notice.isPinned ? '📌 取消置顶' : '📌 置顶' }}
               </button>
-              <button @click="deleteNotice(notice)" class="btn btn-sm btn-danger">
+              <button @click="handleDeleteNotice(notice)" class="btn btn-sm btn-danger">
                 🗑️ 删除
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="totalPages > 1" class="pagination-container">
+        <div class="pagination">
+          <button
+            @click="changePage(currentPage - 1)"
+            :disabled="currentPage <= 1"
+            class="pagination-btn"
+          >
+            上一页
+          </button>
+          
+          <span class="page-info">
+            第 {{ currentPage }} 页，共 {{ totalPages }} 页 ({{ total }} 条公告)
+          </span>
+          
+          <button
+            @click="changePage(currentPage + 1)"
+            :disabled="currentPage >= totalPages"
+            class="pagination-btn"
+          >
+            下一页
+          </button>
         </div>
       </div>
     </div>
@@ -190,6 +215,7 @@
 <script setup>
 import { ref, computed, reactive, onMounted } from 'vue';
 import { useUserStore } from '@/store/user';
+import { getNotices, createNotice, updateNotice, deleteNotice } from '@/api/notices';
 
 const userStore = useUserStore();
 
@@ -241,94 +267,60 @@ const filteredNotices = computed(() => {
     });
 });
 
-// 模拟公告数据
-const mockNotices = [
-  {
-    id: 1,
-    title: '🎉 校园二手交易平台正式上线！',
-    content: `<p>亲爱的同学们，</p>
-              <p>经过开发团队的不懈努力，<strong>校园二手交易平台</strong>正式上线了！</p>
-              <p>平台主要功能：</p>
-              <ul>
-                <li>📱 发布和浏览二手商品</li>
-                <li>💬 私信沟通交易详情</li>
-                <li>⭐ 收藏心仪商品</li>
-                <li>🔍 智能搜索和分类筛选</li>
-              </ul>
-              <p>欢迎大家积极使用，共建绿色环保的校园交易环境！</p>`,
-    author: '系统管理员',
-    priority: 'important',
-    isPinned: true,
-    createdAt: '2023-11-01T10:00:00Z',
-    expiresAt: null
-  },
-  {
-    id: 2,
-    title: '⚠️ 交易安全须知',
-    content: `<p>为保障大家的交易安全，请注意以下几点：</p>
-              <ol>
-                <li><strong>当面交易</strong>：建议选择校内公共场所进行交易</li>
-                <li><strong>验货付款</strong>：先验货再付款，确保商品质量</li>
-                <li><strong>保留凭证</strong>：保留交易记录和聊天截图</li>
-                <li><strong>举报违规</strong>：发现可疑行为及时举报</li>
-              </ol>
-              <p>如遇到问题，请及时联系平台客服。</p>`,
-    author: '安全管理员',
-    priority: 'urgent',
-    isPinned: true,
-    createdAt: '2023-11-02T14:30:00Z',
-    expiresAt: null
-  },
-  {
-    id: 3,
-    title: '📖 平台使用指南',
-    content: `<p>新用户使用指南：</p>
-              <p><strong>1. 账号激活</strong></p>
-              <p>首次登录需要完成账号激活，激活后可享受完整功能。</p>
-              <p><strong>2. 发布商品</strong></p>
-              <p>点击"发布商品"按钮，填写商品信息、上传图片、设置价格。</p>
-              <p><strong>3. 搜索商品</strong></p>
-              <p>使用搜索框或分类筛选查找心仪商品。</p>
-              <p><strong>4. 联系卖家</strong></p>
-              <p>通过私信功能与卖家沟通交易详情。</p>`,
-    author: '客服团队',
-    priority: 'normal',
-    isPinned: false,
-    createdAt: '2023-11-03T09:15:00Z',
-    expiresAt: '2024-01-01T00:00:00Z'
-  },
-  {
-    id: 4,
-    title: '🛠️ 系统维护通知',
-    content: `<p>系统将于本周六凌晨2:00-4:00进行例行维护。</p>
-              <p>维护期间可能无法正常访问，请大家提前安排好交易事宜。</p>
-              <p>维护内容包括：</p>
-              <ul>
-                <li>性能优化</li>
-                <li>安全更新</li>
-                <li>Bug修复</li>
-              </ul>
-              <p>感谢大家的理解与支持！</p>`,
-    author: '技术团队',
-    priority: 'normal',
-    isPinned: false,
-    createdAt: '2023-11-05T16:20:00Z',
-    expiresAt: '2023-11-12T00:00:00Z'
-  }
-];
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(10);
+const totalPages = ref(1);
+const total = ref(0);
 
 // 方法
 async function loadNotices() {
   try {
     loading.value = true;
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 500));
-    notices.value = mockNotices;
+    
+    const params = {
+      page: currentPage.value,
+      limit: pageSize.value
+    };
+    
+    const response = await getNotices(params);
+    
+    if (response.data.status === 'success') {
+      const data = response.data.data;
+      
+      // 转换数据格式以匹配前端期望
+      notices.value = data.items.map(notice => ({
+        ...notice,
+        author: notice.author.nickname,
+        priority: mapNoticeType(notice.type),
+        isPinned: notice.isSticky,
+        createdAt: notice.publishedAt
+      }));
+      
+      total.value = data.total;
+      totalPages.value = data.totalPages;
+    }
   } catch (error) {
     console.error('Failed to load notices:', error);
+    // 如果API失败，显示空状态
+    notices.value = [];
+    total.value = 0;
+    totalPages.value = 1;
   } finally {
     loading.value = false;
   }
+}
+
+// 映射公告类型
+function mapNoticeType(type) {
+  const typeMap = {
+    '系统公告': 'normal',
+    '重要公告': 'important', 
+    '紧急公告': 'urgent',
+    'important': 'important',
+    'urgent': 'urgent'
+  };
+  return typeMap[type] || 'normal';
 }
 
 function showCreateNotice() {
@@ -365,37 +357,44 @@ function resetForm() {
   noticeForm.expiresAt = '';
 }
 
-function submitNotice() {
+async function submitNotice() {
   if (!noticeForm.title || !noticeForm.content) return;
   
-  const noticeData = {
-    title: noticeForm.title,
-    content: noticeForm.content,
-    author: userStore.userInfo.nickname || userStore.userInfo.name,
-    priority: noticeForm.priority,
-    isPinned: noticeForm.isPinned,
-    expiresAt: noticeForm.expiresAt || null,
-    createdAt: new Date().toISOString()
-  };
-  
-  if (isEditing.value && editingNotice.value) {
-    // 更新公告
-    const index = notices.value.findIndex(n => n.id === editingNotice.value.id);
-    if (index !== -1) {
-      notices.value[index] = { ...notices.value[index], ...noticeData };
-    }
-    alert('公告更新成功！');
-  } else {
-    // 创建新公告
-    const newNotice = {
-      id: Date.now(),
-      ...noticeData
+  try {
+    const noticeData = {
+      title: noticeForm.title,
+      content: noticeForm.content,
+      type: mapPriorityToType(noticeForm.priority),
+      isActive: true
     };
-    notices.value.unshift(newNotice);
-    alert('公告发布成功！');
+    
+    if (isEditing.value && editingNotice.value) {
+      // 更新公告
+      await updateNotice(editingNotice.value.id, noticeData);
+      alert('公告更新成功！');
+    } else {
+      // 创建新公告
+      await createNotice(noticeData);
+      alert('公告发布成功！');
+    }
+    
+    // 重新加载公告列表
+    await loadNotices();
+    closeNoticeDialog();
+  } catch (error) {
+    console.error('Submit notice error:', error);
+    alert('操作失败，请重试！');
   }
-  
-  closeNoticeDialog();
+}
+
+// 映射优先级到类型
+function mapPriorityToType(priority) {
+  const priorityMap = {
+    'normal': '系统公告',
+    'important': '重要公告',
+    'urgent': '紧急公告'
+  };
+  return priorityMap[priority] || '系统公告';
 }
 
 function togglePin(notice) {
@@ -403,18 +402,30 @@ function togglePin(notice) {
   alert(`公告已${notice.isPinned ? '置顶' : '取消置顶'}`);
 }
 
-function deleteNotice(notice) {
+async function handleDeleteNotice(notice) {
   if (confirm('确定要删除这个公告吗？')) {
-    const index = notices.value.findIndex(n => n.id === notice.id);
-    if (index !== -1) {
-      notices.value.splice(index, 1);
+    try {
+      await deleteNotice(notice.id);
       alert('公告删除成功！');
+      // 重新加载公告列表
+      await loadNotices();
+    } catch (error) {
+      console.error('Delete notice error:', error);
+      alert('删除失败，请重试！');
     }
   }
 }
 
 function toggleManageMode() {
   isManageMode.value = !isManageMode.value;
+}
+
+// 分页相关
+function changePage(page) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+    loadNotices();
+  }
 }
 
 function isExpired(notice) {
@@ -907,6 +918,46 @@ onMounted(() => {
   color: #333;
 }
 
+/* 分页样式 */
+.pagination-container {
+  padding: 20px;
+  background: white;
+  border-top: 1px solid #e9ecef;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: #666;
+  font-size: 14px;
+}
+
 @media (max-width: 768px) {
   .page-header {
     padding: 40px 0;
@@ -936,6 +987,15 @@ onMounted(() => {
   .modal-content {
     width: 95%;
     margin: 20px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .page-info {
+    order: -1;
   }
 }
 </style>
