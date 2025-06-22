@@ -89,27 +89,87 @@ router.post('/activate', async (req, res) => {
       return res.status(400).json(badRequest('所有字段都不能为空'));
     }
 
-    // TODO: 实现激活逻辑
-    const mockUser = {
-      id: '1',
-      studentId,
-      name,
-      nickname,
-      role: '认证用户',
-      avatar: null,
-      email: null,
-      phone: null,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
+    // 查找用户
+    const user = await prisma.user.findUnique({
+      where: { studentId },
+      select: {
+        id: true,
+        studentId: true,
+        name: true,
+        nickname: true,
+        role: true,
+        avatar: true,
+        contact: true,
+        password: true,
+        status: true,
+        activationCode: true,
+        createdAt: true
+      }
+    });
 
-    const token = 'mock-jwt-token-' + Date.now();
+    if (!user) {
+      return res.status(404).json(error('学号不存在，请检查学号是否正确'));
+    }
+
+    // 验证姓名
+    if (user.name !== name) {
+      return res.status(404).json(error('姓名不匹配，请检查姓名是否正确'));
+    }
+
+    // 检查账号是否已激活
+    if (user.password && user.role !== '未认证用户') {
+      return res.status(409).json(error('该账号已激活，请直接使用认证登录'));
+    }
+
+    // 验证激活码
+    if (!user.activationCode || user.activationCode !== activationCode) {
+      return res.status(400).json(error('激活码无效或已过期，请检查激活码是否正确'));
+    }
+
+    // 更新用户信息（激活账号）
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: password, // TODO: 实际项目中应该使用bcrypt加密密码
+        nickname: nickname,
+        role: '认证用户',
+        activationCode: null // 清除激活码
+      },
+      select: {
+        id: true,
+        studentId: true,
+        name: true,
+        nickname: true,
+        role: true,
+        avatar: true,
+        contact: true,
+        status: true,
+        createdAt: true
+      }
+    });
+
+    // 生成JWT token
+    const token = generateToken(updatedUser);
+
+    // 返回用户信息
+    const userInfo = {
+      id: updatedUser.id,
+      studentId: updatedUser.studentId,
+      name: updatedUser.name,
+      nickname: updatedUser.nickname,
+      role: updatedUser.role,
+      avatar: updatedUser.avatar,
+      contact: updatedUser.contact,
+      isActive: updatedUser.status === '正常',
+      createdAt: updatedUser.createdAt.toISOString()
+    };
 
     return res.json(success('账号激活成功', {
       token,
-      user: mockUser
+      user: userInfo
     }));
   } catch (err) {
+    console.error('Activation error:', err);
     return res.status(500).json(error('激活失败'));
   }
 });
