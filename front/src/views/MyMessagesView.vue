@@ -137,7 +137,7 @@
                 <div class="message-content">
                   <div class="message-text">{{ message.content }}</div>
                   <div class="message-meta">
-                    <span class="message-time">{{ formatMessageTime(message.createdAt) }}</span>
+                    <span class="message-time">{{ formatMessageTime(message.sentAt) }}</span>
                     <span v-if="message.senderId === userStore.userInfo?.id" class="message-status">
                       {{ message.isRead ? '已读' : '已发送' }}
                     </span>
@@ -154,7 +154,7 @@
                 v-model="newMessage"
                 placeholder="输入消息..."
                 rows="2"
-                @keypress.enter.prevent="sendMessage"
+                @keypress.enter.prevent="sendMessageToUser"
                 @keypress.shift.enter="newMessage += '\n'"
                 class="message-input"
               ></textarea>
@@ -164,7 +164,7 @@
                   <span>按 Enter 发送，Shift + Enter 换行</span>
                 </div>
                 <button 
-                  @click="sendMessage"
+                  @click="sendMessageToUser"
                   :disabled="!newMessage.trim() || sendingMessage"
                   class="btn btn-primary"
                 >
@@ -183,7 +183,8 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { mockConversations, mockMessages, mockUsers } from '@/utils/mockData';
+import { getConversations, getConversationMessages, sendMessage, markMessagesAsRead } from '@/api/messages';
+import { mockConversations, mockMessages } from '@/utils/mockData';
 import { config } from '@/utils/config';
 
 const router = useRouter();
@@ -215,33 +216,18 @@ async function loadConversations() {
   try {
     loadingConversations.value = true;
     
-    if (config.useMockData) {
-      // 使用模拟数据
-      const currentUserId = userStore.userInfo?.id;
-      conversations.value = mockConversations.filter(conv => 
-        conv.participants.includes(currentUserId)
-      ).map(conv => {
-        // 找到对话中的另一个用户
-        const otherUserId = conv.participants.find(id => id !== currentUserId);
-        const otherUser = mockConversations.find(c => c.otherUser?.id === otherUserId)?.otherUser || {
-          id: otherUserId,
-          nickname: `用户${otherUserId}`,
-          role: '认证用户',
-          credit: 95
-        };
-        
-        return {
-          ...conv,
-          otherUser
-        };
-      });
+    const response = await getConversations({ page: 1, limit: 50 });
+    
+    if (response.data.status === 'success') {
+      conversations.value = response.data.data.items || [];
     } else {
-      // 这里应该调用真实的API
-      // const response = await getMyConversations();
-      // conversations.value = response.data;
+      console.error('Failed to load conversations:', response.data.message);
+      conversations.value = [];
     }
+    
   } catch (error) {
     console.error('Failed to load conversations:', error);
+    conversations.value = [];
   } finally {
     loadingConversations.value = false;
   }
@@ -250,29 +236,32 @@ async function loadConversations() {
 // 选择对话
 async function selectConversation(conversation) {
   selectedConversation.value = conversation;
-  await loadMessages(conversation.id);
+  await loadMessages(conversation.otherUser.id);
   
   // 标记消息为已读
   if (conversation.unreadCount > 0) {
-    conversation.unreadCount = 0;
-    // 这里应该调用API标记为已读
+    try {
+      await markMessagesAsRead(conversation.otherUser.id);
+      conversation.unreadCount = 0;
+    } catch (error) {
+      console.error('Failed to mark messages as read:', error);
+    }
   }
 }
 
 // 加载消息列表
-async function loadMessages(conversationId) {
+async function loadMessages(userId) {
   try {
     loadingMessages.value = true;
     
-    if (config.useMockData) {
-      // 使用模拟数据
-      messages.value = mockMessages.filter(message => 
-        message.conversationId === conversationId
-      ).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const response = await getConversationMessages(userId, { page: 1, limit: 100 });
+    
+    if (response.data.status === 'success') {
+      const messagesData = response.data.data;
+      messages.value = messagesData.messages || [];
     } else {
-      // 这里应该调用真实的API
-      // const response = await getConversationMessages(conversationId);
-      // messages.value = response.data;
+      console.error('Failed to load messages:', response.data.message);
+      messages.value = [];
     }
     
     // 滚动到底部
@@ -281,51 +270,48 @@ async function loadMessages(conversationId) {
     });
   } catch (error) {
     console.error('Failed to load messages:', error);
+    messages.value = [];
   } finally {
     loadingMessages.value = false;
   }
 }
 
 // 发送消息
-async function sendMessage() {
+async function sendMessageToUser() {
   if (!newMessage.value.trim() || !selectedConversation.value) return;
   
   try {
     sendingMessage.value = true;
     
     const messageContent = newMessage.value.trim();
-    newMessage.value = '';
     
-    // 创建新消息对象
-    const message = {
-      id: Date.now(),
-      conversationId: selectedConversation.value.id,
-      senderId: userStore.userInfo.id,
-      content: messageContent,
-      createdAt: new Date().toISOString(),
-      isRead: false
-    };
-    
-    // 添加到消息列表
-    messages.value.push(message);
-    
-    // 更新对话的最后一条消息
-    selectedConversation.value.lastMessage = message;
-    
-    // 滚动到底部
-    nextTick(() => {
-      scrollToBottom();
+    const response = await sendMessage({
+      receiverId: selectedConversation.value.otherUser.id,
+      content: messageContent
     });
     
-    if (config.useMockData) {
-      // 模拟发送成功
-      setTimeout(() => {
-        message.isRead = true;
-      }, 1000);
+    if (response.data.status === 'success') {
+      // 添加到消息列表
+      messages.value.push(response.data.data);
+      
+      // 更新对话的最后一条消息
+      selectedConversation.value.lastMessage = {
+        content: messageContent,
+        sentAt: response.data.data.sentAt,
+        senderId: response.data.data.senderId
+      };
+      
+      // 清空输入框
+      newMessage.value = '';
+      
+      // 滚动到底部
+      nextTick(() => {
+        scrollToBottom();
+      });
     } else {
-      // 这里应该调用真实的API
-      // await sendMessageAPI(selectedConversation.value.id, { content: messageContent });
+      alert('发送失败：' + response.data.message);
     }
+    
   } catch (error) {
     console.error('Failed to send message:', error);
     alert('发送失败，请重试');
@@ -403,7 +389,7 @@ onMounted(async () => {
   // 检查是否从商品详情页跳转过来，需要自动开启与卖家的对话
   const { userId, nickname, productId, productName } = route.query;
   if (userId && nickname) {
-    await startConversationWithUser(parseInt(userId), nickname, productId, productName);
+    await startConversationWithUser(userId, nickname, productId, productName);
   }
 });
 
@@ -416,15 +402,15 @@ async function startConversationWithUser(targetUserId, targetNickname, productId
   
   // 如果没有对话，创建一个新的
   if (!conversation) {
-    const targetUser = mockUsers.find(user => user.id === targetUserId) || {
+    // 不依赖mockUsers，直接创建用户对象
+    const targetUser = {
       id: targetUserId,
       nickname: targetNickname,
       role: '认证用户'
     };
     
     conversation = {
-      id: Date.now(),
-      participants: [userStore.userInfo.id, targetUserId],
+      id: `conversation_${targetUserId}`,
       lastMessage: null,
       unreadCount: 0,
       otherUser: targetUser,

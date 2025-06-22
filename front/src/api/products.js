@@ -255,10 +255,95 @@ export function getCategories() {
 
 
 /**
+ * 获取商品评论
+ * @param {number} productId 商品ID
+ * @param {object} params 查询参数
+ */
+export function getProductComments(productId, params = {}) {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const { page = 1, limit = 20 } = params;
+        
+        // 筛选指定商品的评论
+        const productComments = mockComments.filter(c => c.productId === parseInt(productId));
+        
+        // 分页
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedComments = productComments.slice(startIndex, endIndex);
+        
+        resolve({
+          data: {
+            status: 'success',
+            message: '获取评论成功',
+            data: {
+              items: paginatedComments,
+              total: productComments.length,
+              page: parseInt(page),
+              limit: parseInt(limit),
+              totalPages: Math.ceil(productComments.length / limit)
+            }
+          }
+        });
+      }, 200);
+    });
+  }
+  
+  return request({
+    url: `/products/${productId}/comments`,
+    method: 'get',
+    params,
+  });
+}
+
+/**
+ * 添加评论
+ * @param {number} productId 商品ID
+ * @param {object} data 评论数据
+ */
+export function createComment(productId, data) {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newComment = {
+          id: Date.now(),
+          productId: parseInt(productId),
+          content: data.content,
+          author: {
+            id: 1, // 假设当前用户ID为1
+            nickname: '技术宅'
+          },
+          createdAt: new Date().toISOString()
+        };
+        
+        // 添加到模拟数据
+        mockComments.unshift(newComment);
+        
+        resolve({
+          data: {
+            status: 'success',
+            message: '评论发表成功',
+            data: newComment
+          }
+        });
+      }, 300);
+    });
+  }
+  
+  return request({
+    url: `/products/${productId}/comments/create`,
+    method: 'post',
+    data,
+  });
+}
+
+/**
  * 删除评论
+ * @param {number} productId 商品ID
  * @param {number} commentId 评论ID
  */
-export function deleteComment(commentId) {
+export function deleteComment(productId, commentId) {
   if (config.useMockData) {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -276,13 +361,18 @@ export function deleteComment(commentId) {
           mockComments.splice(commentIndex, 1);
         }
         
-        resolve({ data: { message: '评论删除成功' } });
+        resolve({ 
+          data: { 
+            status: 'success',
+            message: '评论删除成功' 
+          } 
+        });
       }, 300);
     });
   }
   
   return request({
-    url: `/comments/${commentId}/delete`,
+    url: `/products/${productId}/comments/${commentId}/delete`,
     method: 'post',
   });
 }

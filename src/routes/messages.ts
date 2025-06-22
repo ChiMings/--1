@@ -1,120 +1,167 @@
 import { Router } from 'express';
-import { success, error, badRequest } from '../utils/response';
+import { success, error, badRequest, notFound } from '../utils/response';
+import { prisma } from '../utils/database';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // 获取会话列表
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
+    const currentUserId = req.user!.id;
 
-    // TODO: 从JWT获取当前用户ID
-    const currentUserId = 'current-user-id';
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
 
-    // TODO: 查询用户的会话列表
-    const mockConversations = [
-      {
-        id: 'conversation_1',
-        otherUser: {
-          id: '2',
-          nickname: '书虫',
-          avatar: null
-        },
-        lastMessage: {
-          content: '商品还在吗？',
-          sentAt: new Date().toISOString(),
-          senderId: '2'
-        },
-        unreadCount: 3,
-        updatedAt: new Date().toISOString()
+    // 查询用户参与的所有消息，获取对话对象
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: currentUserId },
+          { receiverId: currentUserId }
+        ],
+        deleted: false
       },
-      {
-        id: 'conversation_2',
-        otherUser: {
-          id: '3',
-          nickname: '运动达人',
-          avatar: null
+      include: {
+        sender: {
+          select: { id: true, nickname: true, avatar: true }
         },
-        lastMessage: {
-          content: '谢谢，已经买到了',
-          sentAt: new Date(Date.now() - 86400000).toISOString(), // 1天前
-          senderId: 'current-user-id'
-        },
-        unreadCount: 0,
-        updatedAt: new Date(Date.now() - 86400000).toISOString()
+        receiver: {
+          select: { id: true, nickname: true, avatar: true }
+        }
+      },
+      orderBy: { sentAt: 'desc' }
+    });
+
+    // 按对话分组
+    const conversationMap = new Map();
+    
+    messages.forEach(message => {
+      const otherUserId = message.senderId === currentUserId ? message.receiverId : message.senderId;
+      const otherUser = message.senderId === currentUserId ? message.receiver : message.sender;
+      
+      if (!conversationMap.has(otherUserId)) {
+        conversationMap.set(otherUserId, {
+          id: `conversation_${otherUserId}`,
+          otherUser,
+          lastMessage: {
+            content: message.content,
+            sentAt: message.sentAt.toISOString(),
+            senderId: message.senderId
+          },
+          unreadCount: 0,
+          updatedAt: message.sentAt.toISOString()
+        });
       }
-    ];
+    });
+
+    // 计算未读消息数
+    for (const [otherUserId, conversation] of conversationMap) {
+      const unreadCount = await prisma.message.count({
+        where: {
+          senderId: otherUserId,
+          receiverId: currentUserId,
+          isRead: false,
+          deleted: false
+        }
+      });
+      conversation.unreadCount = unreadCount;
+    }
+
+    const conversations = Array.from(conversationMap.values());
+    
+    // 按最后消息时间排序
+    conversations.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+    // 分页
+    const paginatedConversations = conversations.slice(skip, skip + limitNum);
 
     return res.json(success('获取会话列表成功', {
-      items: mockConversations,
-      total: mockConversations.length,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(mockConversations.length / Number(limit))
+      items: paginatedConversations,
+      total: conversations.length,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(conversations.length / limitNum)
     }));
   } catch (err) {
+    console.error('Get conversations error:', err);
     return res.status(500).json(error('获取失败'));
   }
 });
 
 // 获取与指定用户的消息记录
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 50 } = req.query;
+    const currentUserId = req.user!.id;
 
-    // TODO: 从JWT获取当前用户ID
-    const currentUserId = 'current-user-id';
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
 
-    // TODO: 查询与指定用户的消息记录
-    const mockMessages = [
-      {
-        id: 'msg_1',
-        content: '你好，这个商品还在吗？',
-        senderId: userId,
-        receiverId: currentUserId,
-        sentAt: new Date(Date.now() - 3600000).toISOString(), // 1小时前
-        isRead: true
-      },
-      {
-        id: 'msg_2',
-        content: '在的，你可以来看看',
-        senderId: currentUserId,
-        receiverId: userId,
-        sentAt: new Date(Date.now() - 3000000).toISOString(), // 50分钟前
-        isRead: false
-      },
-      {
-        id: 'msg_3',
-        content: '好的，什么时候方便？',
-        senderId: userId,
-        receiverId: currentUserId,
-        sentAt: new Date(Date.now() - 1800000).toISOString(), // 30分钟前
-        isRead: true
-      }
-    ];
+    // 验证对方用户是否存在
+    const otherUser = await prisma.user.findUnique({
+      where: { id: userId, deleted: false },
+      select: { id: true, nickname: true, avatar: true }
+    });
 
-    const otherUser = {
-      id: userId,
-      nickname: '书虫',
-      avatar: null
-    };
+    if (!otherUser) {
+      return res.status(404).json(notFound('用户不存在'));
+    }
+
+    // 查询与指定用户的消息记录
+    const [messages, total] = await Promise.all([
+      prisma.message.findMany({
+        where: {
+          OR: [
+            { senderId: currentUserId, receiverId: userId },
+            { senderId: userId, receiverId: currentUserId }
+          ],
+          deleted: false
+        },
+        orderBy: { sentAt: 'asc' },
+        skip,
+        take: limitNum
+      }),
+      prisma.message.count({
+        where: {
+          OR: [
+            { senderId: currentUserId, receiverId: userId },
+            { senderId: userId, receiverId: currentUserId }
+          ],
+          deleted: false
+        }
+      })
+    ]);
+
+    const formattedMessages = messages.map(message => ({
+      id: message.id,
+      content: message.content,
+      senderId: message.senderId,
+      receiverId: message.receiverId,
+      sentAt: message.sentAt.toISOString(),
+      isRead: message.isRead
+    }));
 
     return res.json(success('获取消息记录成功', {
       otherUser,
-      messages: mockMessages,
-      total: mockMessages.length,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(mockMessages.length / Number(limit))
+      messages: formattedMessages,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
     }));
   } catch (err) {
+    console.error('Get messages error:', err);
     return res.status(500).json(error('获取失败'));
   }
 });
 
 // 发送私信
-router.post('/send', async (req, res) => {
+router.post('/send', authenticateToken, async (req, res) => {
   try {
     const { receiverId, content } = req.body;
 
@@ -122,44 +169,70 @@ router.post('/send', async (req, res) => {
       return res.status(400).json(badRequest('接收者ID和消息内容不能为空'));
     }
 
-    // TODO: 从JWT获取当前用户ID
-    const currentUserId = 'current-user-id';
+    if (!content.trim()) {
+      return res.status(400).json(badRequest('消息内容不能为空'));
+    }
+
+    const currentUserId = req.user!.id;
 
     if (receiverId === currentUserId) {
       return res.status(400).json(badRequest('不能给自己发送消息'));
     }
 
-    // TODO: 验证接收者是否存在
-    // TODO: 创建消息记录
-    const newMessage = {
-      id: `msg_${Date.now()}`,
-      content,
-      senderId: currentUserId,
-      receiverId,
-      sentAt: new Date().toISOString(),
-      isRead: false
+    // 验证接收者是否存在
+    const receiver = await prisma.user.findUnique({
+      where: { id: receiverId, deleted: false }
+    });
+
+    if (!receiver) {
+      return res.status(404).json(notFound('接收者不存在'));
+    }
+
+    // 创建消息记录
+    const newMessage = await prisma.message.create({
+      data: {
+        senderId: currentUserId,
+        receiverId,
+        content: content.trim()
+      }
+    });
+
+    const formattedMessage = {
+      id: newMessage.id,
+      content: newMessage.content,
+      senderId: newMessage.senderId,
+      receiverId: newMessage.receiverId,
+      sentAt: newMessage.sentAt.toISOString(),
+      isRead: newMessage.isRead
     };
 
-    return res.status(201).json(success('消息发送成功', newMessage));
+    return res.status(201).json(success('消息发送成功', formattedMessage));
   } catch (err) {
+    console.error('Send message error:', err);
     return res.status(500).json(error('发送失败'));
   }
 });
 
 // 标记消息为已读
-router.post('/:userId/read', async (req, res) => {
+router.post('/:userId/read', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    const currentUserId = req.user!.id;
 
-    // TODO: 从JWT获取当前用户ID
-    const currentUserId = 'current-user-id';
+    // 将与指定用户的未读消息标记为已读
+    const result = await prisma.message.updateMany({
+      where: {
+        senderId: userId,
+        receiverId: currentUserId,
+        isRead: false,
+        deleted: false
+      },
+      data: { isRead: true }
+    });
 
-    // TODO: 将与指定用户的未读消息标记为已读
-    // UPDATE messages SET isRead = true 
-    // WHERE senderId = userId AND receiverId = currentUserId AND isRead = false
-
-    return res.json(success('消息已标记为已读'));
+    return res.json(success(`已标记 ${result.count} 条消息为已读`));
   } catch (err) {
+    console.error('Mark messages read error:', err);
     return res.status(500).json(error('操作失败'));
   }
 });
