@@ -1,28 +1,12 @@
 import { Router } from 'express';
 import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
-import { getCurrentUserId } from '../utils/auth';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
 
 const router = Router();
 
-// 管理员权限验证中间件
-async function requireAdmin(req: any, res: any, next: any) {
-  const currentUserId = getCurrentUserId(req);
-  if (!currentUserId) {
-    return res.status(401).json(error('请先登录'));
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: currentUserId }
-  });
-
-  if (!user || (user.role !== '管理员' && user.role !== '超级管理员')) {
-    return res.status(403).json(error('需要管理员权限'));
-  }
-
-  req.user = user;
-  next();
-}
+// 为所有管理员路由添加身份验证
+router.use(authenticateToken);
 
 // 获取系统统计信息
 router.get('/stats', requireAdmin, async (req, res) => {
@@ -424,7 +408,7 @@ router.post('/reports/:reportId/process', requireAdmin, async (req, res) => {
 // 创建公告
 router.post('/notices/create', requireAdmin, async (req, res) => {
   try {
-    const { title, content, type = '一般公告', isActive = true } = req.body;
+    const { title, content, type = '系统公告', isActive = true } = req.body;
 
     if (!title || !content) {
       return res.status(400).json(badRequest('标题和内容不能为空'));
@@ -451,6 +435,79 @@ router.post('/notices/create', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Create notice error:', err);
     return res.status(500).json(error('创建公告失败'));
+  }
+});
+
+// 更新公告
+router.post('/notices/:noticeId/update', requireAdmin, async (req, res) => {
+  try {
+    const { noticeId } = req.params;
+    const { title, content, type, isActive } = req.body;
+
+    // 检查公告是否存在
+    const notice = await prisma.notice.findFirst({
+      where: {
+        id: noticeId,
+        deleted: false
+      }
+    });
+
+    if (!notice) {
+      return res.status(404).json(error('公告不存在'));
+    }
+
+    // 更新公告
+    const updatedNotice = await prisma.notice.update({
+      where: { id: noticeId },
+      data: {
+        ...(title && { title: title.trim() }),
+        ...(content && { content: content.trim() }),
+        ...(type && { type }),
+        ...(isActive !== undefined && { isActive })
+      }
+    });
+
+    return res.json(success('公告更新成功', {
+      id: updatedNotice.id,
+      title: updatedNotice.title,
+      content: updatedNotice.content,
+      type: updatedNotice.type,
+      isActive: updatedNotice.isActive,
+      updatedAt: updatedNotice.updatedAt.toISOString()
+    }));
+  } catch (err) {
+    console.error('Update notice error:', err);
+    return res.status(500).json(error('更新公告失败'));
+  }
+});
+
+// 删除公告
+router.post('/notices/:noticeId/delete', requireAdmin, async (req, res) => {
+  try {
+    const { noticeId } = req.params;
+
+    // 检查公告是否存在
+    const notice = await prisma.notice.findFirst({
+      where: {
+        id: noticeId,
+        deleted: false
+      }
+    });
+
+    if (!notice) {
+      return res.status(404).json(error('公告不存在'));
+    }
+
+    // 软删除公告
+    await prisma.notice.update({
+      where: { id: noticeId },
+      data: { deleted: true }
+    });
+
+    return res.json(success('公告删除成功'));
+  } catch (err) {
+    console.error('Delete notice error:', err);
+    return res.status(500).json(error('删除公告失败'));
   }
 });
 
