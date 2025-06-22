@@ -48,9 +48,20 @@
             <p class="join-date">
               加入时间：{{ formatDate(user.createdAt) }}
             </p>
-            <p v-if="user.contact" class="contact-info">
-              联系方式：{{ user.contact }}
-            </p>
+            <div class="contact-section">
+              <div v-if="canViewContact" class="contact-info">
+                <span class="contact-label">联系方式：</span>
+                <span v-if="user.contact" class="contact-value">{{ user.contact }}</span>
+                <span v-else class="no-contact">未设置</span>
+              </div>
+              <div v-else class="contact-restricted">
+                <span class="contact-label">联系方式：</span>
+                <span class="restriction-text">
+                  <span class="restriction-icon">🔒</span>
+                  需要认证后查看
+                </span>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -195,6 +206,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { getUserById, getProductsByUserId, mockCategories } from '@/utils/mockData';
+import { getUserProfile, getUserProducts } from '@/api/users';
 import { config } from '@/utils/config';
 import ProductCard from '@/components/ProductCard.vue';
 
@@ -254,6 +266,20 @@ const isCurrentUser = computed(() => {
   return user.value && userStore.userInfo && user.value.id === userStore.userInfo.id;
 });
 
+const canViewContact = computed(() => {
+  // 如果是当前用户自己，总是可以看到
+  if (isCurrentUser.value) return true;
+  
+  // 如果用户未登录，不能查看
+  if (!userStore.isLoggedIn) return false;
+  
+  // 如果是未认证用户，不能查看
+  if (userStore.userInfo?.role === '未认证用户') return false;
+  
+  // 认证用户、管理员、超级管理员可以查看
+  return true;
+});
+
 const tabs = computed(() => [
   { key: 'products', label: '商品', count: userProducts.value.length },
   { key: 'reviews', label: '评价', count: mockReviews.length },
@@ -278,22 +304,46 @@ const filteredProducts = computed(() => {
 async function loadUserProfile() {
   try {
     loading.value = true;
-    const userId = parseInt(route.params.userId);
+    const userId = route.params.userId; // 不需要parseInt，因为使用CUID
     
     if (config.useMockData) {
       // 使用模拟数据
-      user.value = getUserById(userId);
+      user.value = getUserById(parseInt(userId));
       if (user.value) {
-        userProducts.value = getProductsByUserId(userId);
+        userProducts.value = getProductsByUserId(parseInt(userId));
       }
     } else {
-      // 这里应该调用真实的API
-      // const response = await getUserProfile(userId);
-      // user.value = response.data.user;
-      // userProducts.value = response.data.products;
+      // 调用真实的API - 并行获取用户信息和商品列表
+      const [userResponse, productsResponse] = await Promise.all([
+        getUserProfile(userId),
+        getUserProducts(userId, { 
+          page: 1, 
+          limit: 50, // 获取更多商品用于展示
+          sortBy: 'createdAt',
+          order: 'desc'
+        })
+      ]);
+      
+      // 应用memory经验，正确处理API响应数据结构
+      if (userResponse.data.status === 'success') {
+        user.value = userResponse.data.data;
+      } else {
+        console.error('Failed to load user profile:', userResponse.data.message);
+        user.value = null;
+      }
+      
+      if (productsResponse.data.status === 'success') {
+        const apiData = productsResponse.data.data || productsResponse.data;
+        userProducts.value = apiData.items || [];
+      } else {
+        console.error('Failed to load user products:', productsResponse.data.message);
+        userProducts.value = [];
+      }
     }
   } catch (error) {
     console.error('Failed to load user profile:', error);
+    user.value = null;
+    userProducts.value = [];
   } finally {
     loading.value = false;
   }
@@ -513,6 +563,44 @@ onMounted(() => {
   margin: 4px 0;
   color: #666;
   font-size: 14px;
+}
+
+.contact-section {
+  margin-top: 8px;
+}
+
+.contact-info,
+.contact-restricted {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.contact-label {
+  color: #333;
+  font-weight: 500;
+}
+
+.contact-value {
+  color: #007bff;
+  font-weight: 500;
+}
+
+.no-contact {
+  color: #999;
+  font-style: italic;
+}
+
+.contact-restricted .restriction-text {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #666;
+  font-size: 13px;
+}
+
+.restriction-icon {
+  font-size: 12px;
 }
 
 .user-actions {
