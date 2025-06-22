@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { success, error, notFound, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
+import { authenticateToken, optionalAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -150,20 +151,32 @@ router.get('/:id', async (req, res) => {
 });
 
 // 发布商品
-router.post('/create', async (req, res) => {
+router.post('/create', authenticateToken, async (req, res) => {
   try {
     const { name, description, price, categoryId, contact, images } = req.body;
 
-    if (!name || !price || !categoryId) {
-      return res.status(400).json(badRequest('商品名称、价格和分类不能为空'));
+    console.log('接收到的数据:', { name, description, price, categoryId, contact, images: images?.length }); // 调试日志
+
+    // 验证必填字段
+    if (!name || name.trim() === '') {
+      return res.status(400).json(badRequest('商品名称不能为空'));
     }
 
-    // TODO: 从JWT获取当前用户ID，这里暂时使用固定用户ID
-    const sellerId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo'; // 默认用户ID
+    if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+      return res.status(400).json(badRequest('商品价格必须大于0'));
+    }
 
-    // 验证分类是否存在
+    if (!categoryId) {
+      return res.status(400).json(badRequest('商品分类不能为空'));
+    }
+
+    // 从JWT获取当前用户ID
+    const sellerId = req.user!.id;
+
+    // 验证分类是否存在（确保categoryId是正确的类型）
+    const categoryIdString = String(categoryId);
     const category = await prisma.category.findUnique({
-      where: { id: categoryId, deleted: false }
+      where: { id: categoryIdString, deleted: false }
     });
 
     if (!category) {
@@ -172,13 +185,13 @@ router.post('/create', async (req, res) => {
 
     const newProduct = await prisma.product.create({
       data: {
-        name,
-        description: description || '',
+        name: name.trim(),
+        description: description ? description.trim() : '',
         price: parseFloat(price),
-        categoryId,
+        categoryId: categoryIdString,
         sellerId,
-        contact: contact || '',
-        images: images ? JSON.stringify(images) : null,
+        contact: contact ? contact.trim() : '',
+        images: images && images.length > 0 ? JSON.stringify(images) : null,
         status: '在售'
       },
       include: {
@@ -201,8 +214,11 @@ router.post('/create', async (req, res) => {
     };
 
     return res.status(201).json(success('商品发布成功', processedProduct));
-  } catch (err) {
+  } catch (err: any) {
     console.error('发布商品失败:', err);
+    if (err.code === 'P2002') {
+      return res.status(400).json(badRequest('商品信息重复'));
+    }
     return res.status(500).json(error('发布失败'));
   }
 });
