@@ -78,8 +78,10 @@
           v-for="product in products"
           :key="product.id"
           :product="product"
-          :show-actions="false"
+          :show-actions="true"
           @click="goToProductDetail(product.id)"
+          @favorite="handleFavoriteToggle"
+          @activation-tip="showActivationTip"
         />
       </div>
 
@@ -126,7 +128,7 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import ProductCard from '@/components/ProductCard.vue';
-import { getProducts } from '@/api/products';
+import { getProducts, favoriteProduct, unfavoriteProduct } from '@/api/products';
 import { getCategories } from '@/api/categories';
 
 const router = useRouter();
@@ -258,6 +260,43 @@ function changePage(page) {
 // 跳转到商品详情
 function goToProductDetail(productId) {
   router.push(`/product/${productId}`);
+}
+
+// 处理收藏/取消收藏
+async function handleFavoriteToggle(product) {
+  if (!userStore.isLoggedIn) {
+    alert('请先登录后再收藏商品');
+    return;
+  }
+
+  if (userStore.userInfo?.role === '未认证用户') {
+    showActivationTip();
+    return;
+  }
+
+  try {
+    if (product.isFavorite) {
+      await unfavoriteProduct(product.id);
+      product.isFavorite = false;
+    } else {
+      await favoriteProduct(product.id);
+      product.isFavorite = true;
+    }
+    
+    // 更新本地数据
+    const productIndex = products.value.findIndex(p => p.id === product.id);
+    if (productIndex !== -1) {
+      products.value[productIndex].isFavorite = product.isFavorite;
+    }
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    alert('操作失败，请重试');
+  }
+}
+
+// 显示账号激活提示
+function showActivationTip() {
+  alert('您当前为未认证用户，请先完成账号激活以使用完整功能。');
 }
 
 // 组件挂载时加载数据

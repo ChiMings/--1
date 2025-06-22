@@ -6,7 +6,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth';
 const router = Router();
 
 // 获取商品列表
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const { 
       page = 1, 
@@ -66,6 +66,11 @@ router.get('/', async (req, res) => {
               avatar: true
             }
           },
+          favorites: req.user ? {
+            where: {
+              userId: req.user.id
+            }
+          } : false,
           _count: {
             select: {
               favorites: true,
@@ -77,11 +82,12 @@ router.get('/', async (req, res) => {
       prisma.product.count({ where })
     ]);
 
-    // 处理图片数据
+    // 处理图片数据和收藏状态
     const processedProducts = products.map(product => ({
       ...product,
       images: product.images ? JSON.parse(product.images) : [],
-      isFavorite: false // TODO: 需要根据当前用户查询
+      isFavorite: req.user ? product.favorites.length > 0 : false,
+      favorites: undefined // 移除 favorites 字段，避免暴露给前端
     }));
 
     return res.json(success('获取商品列表成功', {
@@ -98,7 +104,7 @@ router.get('/', async (req, res) => {
 });
 
 // 获取商品详情
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -117,6 +123,11 @@ router.get('/:id', async (req, res) => {
             createdAt: true
           }
         },
+        favorites: req.user ? {
+          where: {
+            userId: req.user.id
+          }
+        } : false,
         _count: {
           select: {
             favorites: true,
@@ -136,11 +147,12 @@ router.get('/:id', async (req, res) => {
       data: { viewCount: { increment: 1 } }
     });
 
-    // 处理图片数据
+    // 处理图片数据和收藏状态
     const processedProduct = {
       ...product,
       images: product.images ? JSON.parse(product.images) : [],
-      isFavorite: false // TODO: 需要根据当前用户查询
+      isFavorite: req.user ? product.favorites.length > 0 : false,
+      favorites: undefined // 移除 favorites 字段，避免暴露给前端
     };
 
     return res.json(success('获取商品详情成功', processedProduct));
@@ -329,11 +341,10 @@ router.post('/:id/delete', async (req, res) => {
 });
 
 // 收藏商品
-router.post('/:id/favorite', async (req, res) => {
+router.post('/:id/favorite', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    // TODO: 从JWT获取当前用户ID
-    const userId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo';
+    const userId = req.user!.id;
 
     // 检查是否已收藏
     const existingFavorite = await prisma.favorite.findUnique({
@@ -364,11 +375,10 @@ router.post('/:id/favorite', async (req, res) => {
 });
 
 // 取消收藏
-router.post('/:id/unfavorite', async (req, res) => {
+router.post('/:id/unfavorite', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    // TODO: 从JWT获取当前用户ID
-    const userId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo';
+    const userId = req.user!.id;
 
     await prisma.favorite.deleteMany({
       where: {

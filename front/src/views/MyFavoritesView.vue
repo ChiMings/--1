@@ -125,7 +125,7 @@
 
           <!-- 收藏时间 -->
           <div class="favorite-time">
-            收藏于 {{ formatDate(product.createdAt) }}
+            收藏于 {{ formatDate(product.favoriteAt || product.createdAt) }}
           </div>
         </div>
       </div>
@@ -237,11 +237,15 @@ async function loadFavorites() {
     });
 
     const response = await getMyFavorites(params);
-    const data = response.data;
+    console.log('收藏列表响应:', response.data); // 添加调试日志
     
-    favorites.value = data.items || [];
-    total.value = data.total || 0;
+    // 处理API响应数据结构
+    const apiData = response.data.data || response.data;
+    favorites.value = apiData.items || [];
+    total.value = apiData.total || 0;
     totalPages.value = Math.ceil(total.value / pageSize);
+    
+    console.log('处理后的收藏数据:', favorites.value); // 添加调试日志
     
     // 清空选择
     selectedProducts.value = [];
