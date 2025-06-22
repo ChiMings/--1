@@ -156,9 +156,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
+import { getUnreadMessageCount } from '@/api/messages';
+import { getUnreadCount } from '@/api/notifications';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -167,9 +169,9 @@ const showUserMenu = ref(false);
 const showMobileMenu = ref(false);
 const userMenuRef = ref(null);
 
-// 模拟未读消息数量
-const unreadMessages = ref(3);
-const unreadNotifications = ref(1);
+// 未读消息和通知数量（动态获取）
+const unreadMessages = ref(0);
+const unreadNotifications = ref(0);
 
 // 计算属性
 const userName = computed(() => {
@@ -219,10 +221,65 @@ function handleClickOutside(event) {
   }
 }
 
+// 获取未读消息数量
+async function fetchUnreadCounts() {
+  if (!userStore.isLoggedIn) {
+    unreadMessages.value = 0;
+    unreadNotifications.value = 0;
+    return;
+  }
+
+  try {
+    // 并行获取未读消息和通知数量
+    const [messagesResponse, notificationsResponse] = await Promise.all([
+      getUnreadMessageCount(),
+      getUnreadCount()
+    ]);
+
+    const messagesData = messagesResponse.data.data || messagesResponse.data;
+    const notificationsData = notificationsResponse.data.data || notificationsResponse.data;
+
+    unreadMessages.value = messagesData.count || 0;
+    unreadNotifications.value = notificationsData.count || 0;
+  } catch (error) {
+    console.error('获取未读数量失败:', error);
+    // 失败时设置为0，避免显示错误的数字
+    unreadMessages.value = 0;
+    unreadNotifications.value = 0;
+  }
+}
+
+// 监听登录状态变化
+watch(() => userStore.isLoggedIn, (isLoggedIn) => {
+  if (isLoggedIn) {
+    fetchUnreadCounts();
+  } else {
+    unreadMessages.value = 0;
+    unreadNotifications.value = 0;
+  }
+}, { immediate: true });
+
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
   // 初始化用户状态
   userStore.initializeFromStorage();
+  
+  // 获取未读数量
+  if (userStore.isLoggedIn) {
+    fetchUnreadCounts();
+    
+    // 定期更新未读数量（每30秒）
+    const interval = setInterval(() => {
+      if (userStore.isLoggedIn) {
+        fetchUnreadCounts();
+      }
+    }, 30000);
+    
+    // 清理定时器
+    onUnmounted(() => {
+      clearInterval(interval);
+    });
+  }
 });
 
 onUnmounted(() => {

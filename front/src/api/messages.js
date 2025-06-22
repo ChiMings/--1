@@ -202,25 +202,6 @@ export function deleteConversation(userId) {
  * 获取未读消息总数
  */
 export function getUnreadMessageCount() {
-  if (config.useMockData) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // 计算未读消息数
-        const unreadCount = mockMessages.filter(message => 
-          message.receiverId === '1' && !message.isRead // 假设当前用户ID为1
-        ).length;
-        
-        resolve({
-          data: {
-            status: 'success',
-            message: '获取未读消息数成功',
-            data: { count: unreadCount }
-          }
-        });
-      }, 100);
-    });
-  }
-  
   return request({
     url: '/messages/unread-count',
     method: 'get',
