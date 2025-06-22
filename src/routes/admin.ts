@@ -6,8 +6,278 @@ import { sendTradeNotification, sendRoleChangeNotification, sendAccountStatusNot
 
 const router = Router();
 
+// 获取用户增长数据的辅助函数
+async function getUserGrowthData() {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // 按天统计最近30天的用户注册数量
+    const userGrowthRaw = await prisma.user.groupBy({
+      by: ['createdAt'],
+      where: {
+        deleted: false,
+        createdAt: { gte: thirtyDaysAgo }
+      },
+      _count: { id: true }
+    });
+
+    // 创建30天的日期数组
+    const growthData = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // 统计当天的注册用户数
+      const dayStart = new Date(date.setHours(0, 0, 0, 0));
+      const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+      
+      const dayCount = await prisma.user.count({
+        where: {
+          deleted: false,
+          createdAt: {
+            gte: dayStart,
+            lte: dayEnd
+          }
+        }
+      });
+
+      growthData.push({
+        date: dateStr,
+        count: dayCount
+      });
+    }
+
+    return growthData;
+  } catch (error) {
+    console.error('Get user growth data error:', error);
+    return [];
+  }
+}
+
+// 获取最近活动的辅助函数
+async function getRecentActivities() {
+  try {
+    const activities: any[] = [];
+
+    // 获取最近的用户注册活动
+    const recentUsers = await prisma.user.findMany({
+      where: { 
+        deleted: false,
+        role: { not: '未认证用户' } // 排除未激活用户
+      },
+      select: {
+        id: true,
+        nickname: true,
+        name: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3
+    });
+
+    recentUsers.forEach(user => {
+      activities.push({
+        id: `user_${user.id}`,
+        type: 'user_register',
+        description: `用户 "${user.nickname || user.name}" 完成账号激活`,
+        status: 'success',
+        createdAt: user.createdAt.toISOString()
+      });
+    });
+
+    // 获取最近的商品发布活动
+    const recentProducts = await prisma.product.findMany({
+      where: { deleted: false },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        seller: {
+          select: { nickname: true, name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 3
+    });
+
+    recentProducts.forEach(product => {
+      activities.push({
+        id: `product_${product.id}`,
+        type: 'product_create',
+        description: `用户 "${product.seller.nickname || product.seller.name}" 发布商品 "${product.name}"`,
+        status: 'success',
+        createdAt: product.createdAt.toISOString()
+      });
+    });
+
+    // 获取最近的举报活动
+    const recentReports = await prisma.report.findMany({
+      where: { deleted: false },
+      select: {
+        id: true,
+        reason: true,
+        status: true,
+        createdAt: true,
+        product: {
+          select: { name: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 2
+    });
+
+    recentReports.forEach(report => {
+      if (report.product) {
+        activities.push({
+          id: `report_${report.id}`,
+          type: 'report_create',
+          description: `用户举报商品 "${report.product.name}" - ${report.reason}`,
+          status: report.status === '待处理' ? 'pending' : 'success',
+          createdAt: report.createdAt.toISOString()
+        });
+      }
+    });
+
+    // 按时间排序，取最新的10条
+    activities.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return activities.slice(0, 10);
+  } catch (error) {
+    console.error('Get recent activities error:', error);
+    return [];
+  }
+}
+
 // 为所有管理员路由添加身份验证
 router.use(authenticateToken);
+
+// 获取数据看板统计信息
+router.get('/dashboard/stats', requireAdmin, async (req, res) => {
+  try {
+    // 并行获取各种统计数据
+    const [
+      totalUsers,
+      totalProducts,
+      totalTransactions,
+      activeUsers,
+      todayRegistrations,
+      todayProducts,
+      todayTransactions,
+      pendingReports,
+      violationProducts,
+      unverifiedUsers,
+      productsByCategory,
+      userGrowthData,
+      recentActivities
+    ] = await Promise.all([
+      // 总用户数
+      prisma.user.count({ where: { deleted: false } }),
+      
+      // 商品总数
+      prisma.product.count({ where: { deleted: false } }),
+      
+      // 交易总数（已售商品）
+      prisma.product.count({ where: { deleted: false, status: '已售' } }),
+      
+      // 活跃用户（最近7天有操作的用户）
+      prisma.user.count({
+        where: {
+          deleted: false,
+          OR: [
+            { updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+            { products: { some: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } } }
+          ]
+        }
+      }),
+      
+      // 今日新注册用户
+      prisma.user.count({
+        where: {
+          deleted: false,
+          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+        }
+      }),
+      
+      // 今日发布商品
+      prisma.product.count({
+        where: {
+          deleted: false,
+          createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+        }
+      }),
+      
+      // 今日交易数
+      prisma.product.count({
+        where: {
+          deleted: false,
+          status: '已售',
+          updatedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+        }
+      }),
+      
+      // 待处理举报
+      prisma.report.count({
+        where: { deleted: false, status: '待处理' }
+      }),
+      
+      // 违规商品（已下架）
+      prisma.product.count({
+        where: { deleted: false, status: '已下架' }
+      }),
+      
+      // 未认证用户
+      prisma.user.count({
+        where: { deleted: false, role: '未认证用户' }
+      }),
+      
+      // 按分类统计商品
+      prisma.category.findMany({
+        where: { deleted: false },
+        select: {
+          name: true,
+          _count: {
+            select: { products: { where: { deleted: false } } }
+          }
+        }
+      }),
+      
+      // 最近30天用户增长数据
+      getUserGrowthData(),
+      
+      // 最近活动
+      getRecentActivities()
+    ]);
+
+    // 格式化商品分类数据
+    const productsByCategoryFormatted = productsByCategory.map((cat: any) => ({
+      category: cat.name,
+      count: cat._count.products
+    }));
+
+    const dashboardStats = {
+      totalUsers,
+      totalProducts,
+      totalTransactions,
+      activeUsers,
+      todayRegistrations,
+      todayProducts,
+      todayTransactions,
+      pendingReports,
+      violationProducts,
+      unverifiedUsers,
+      productsByCategory: productsByCategoryFormatted,
+      userGrowth: userGrowthData,
+      recentActivities
+    };
+
+    return res.json(success('获取数据看板统计成功', dashboardStats));
+  } catch (err) {
+    console.error('Get dashboard stats error:', err);
+    return res.status(500).json(error('获取数据看板统计失败'));
+  }
+});
 
 // 获取系统统计信息
 router.get('/stats', requireAdmin, async (req, res) => {

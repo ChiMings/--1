@@ -189,6 +189,8 @@
 import { ref, computed, onMounted } from 'vue';
 import { mockStats } from '@/utils/mockData';
 import { config } from '@/utils/config';
+import { getDashboardStats, getAdminReportsStats } from '@/api/admin';
+import { getAdminUsersStats } from '@/api/users';
 
 // 响应式数据
 const loading = ref(false);
@@ -257,12 +259,52 @@ async function loadStats() {
       stats.value = mockStats;
       recentActivities.value = mockActivities;
     } else {
-      // 这里应该调用真实的API
-      // const response = await getAdminStats();
-      // stats.value = response.data;
+      // 调用真实的API获取数据看板统计
+      const [dashboardResponse, reportsStatsResponse] = await Promise.all([
+        getDashboardStats(),
+        getAdminReportsStats()
+      ]);
+
+      const dashboardData = dashboardResponse.data.data || dashboardResponse.data;
+      const reportsData = reportsStatsResponse.data.data || reportsStatsResponse.data;
+
+      // 组合数据
+      stats.value = {
+        totalUsers: dashboardData.totalUsers,
+        totalProducts: dashboardData.totalProducts,
+        totalTransactions: dashboardData.totalTransactions,
+        activeUsers: dashboardData.activeUsers,
+        todayRegistrations: dashboardData.todayRegistrations,
+        todayProducts: dashboardData.todayProducts,
+        todayTransactions: dashboardData.todayTransactions,
+        productsByCategory: dashboardData.productsByCategory || [],
+        userGrowth: dashboardData.userGrowth || []
+      };
+
+      // 设置待处理事项数据
+      pendingReports.value = dashboardData.pendingReports || 0;
+      violationProducts.value = dashboardData.violationProducts || 0;
+      unverifiedUsers.value = dashboardData.unverifiedUsers || 0;
+
+      // 最近活动数据
+      recentActivities.value = dashboardData.recentActivities || mockActivities;
+
+      // 用户增长数据
+      if (dashboardData.userGrowth && dashboardData.userGrowth.length > 0) {
+        userGrowthData.value = dashboardData.userGrowth;
+      } else {
+        // 如果没有真实数据，使用模拟数据
+        loadChartData();
+      }
+
+      console.log('📊 数据看板数据已加载:', stats.value);
+      console.log('📈 用户增长数据:', userGrowthData.value);
     }
   } catch (error) {
     console.error('Failed to load stats:', error);
+    // 如果API失败，使用模拟数据作为后备
+    stats.value = mockStats;
+    recentActivities.value = mockActivities;
   } finally {
     loading.value = false;
   }
@@ -271,6 +313,34 @@ async function loadStats() {
 // 加载图表数据
 function loadChartData() {
   if (config.useMockData) {
+    // 如果使用模拟数据，按时间段筛选
+    switch (selectedPeriod.value) {
+      case 'week':
+        userGrowthData.value = mockStats.userGrowth.slice(-7);
+        break;
+      case 'month':
+        userGrowthData.value = mockStats.userGrowth;
+        break;
+      case 'quarter':
+        userGrowthData.value = mockStats.userGrowth;
+        break;
+    }
+  } else if (userGrowthData.value && userGrowthData.value.length > 0) {
+    // 如果有真实数据，按时间段筛选
+    const allData = [...userGrowthData.value];
+    switch (selectedPeriod.value) {
+      case 'week':
+        userGrowthData.value = allData.slice(-7);
+        break;
+      case 'month':
+        userGrowthData.value = allData;
+        break;
+      case 'quarter':
+        userGrowthData.value = allData; // 真实数据目前只有30天
+        break;
+    }
+  } else {
+    // 备用模拟数据
     switch (selectedPeriod.value) {
       case 'week':
         userGrowthData.value = mockStats.userGrowth.slice(-7);
