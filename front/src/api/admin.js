@@ -112,4 +112,110 @@ export function deleteAdminProduct(productId, reason) {
     method: 'post',
     data: { reason },
   });
+}
+
+/**
+ * 获取举报列表
+ * @param {object} params 查询参数
+ */
+export function getAdminReports(params = {}) {
+  // 不设置默认status，让后端返回所有状态的举报
+  // 前端可以通过传递 status 参数来筛选特定状态
+
+  if (config.useMockData) {
+    const mockReports = [
+      {
+        id: 'report_1',
+        reason: '虚假信息',
+        content: '该商品描述与实际不符',
+        status: '待处理',
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        reporter: {
+          id: 'user_1',
+          nickname: '举报用户',
+          studentId: '20230001'
+        },
+        product: {
+          id: 'product_1',
+          name: '被举报商品',
+          images: [],
+          price: 100,
+          status: '在售',
+          seller: {
+            id: 'seller_1',
+            nickname: '卖家用户',
+            studentId: '20230002'
+          }
+        }
+      }
+    ];
+
+    return Promise.resolve({
+      data: {
+        status: 'success',
+        data: {
+          items: mockReports,
+          total: mockReports.length,
+          page: 1,
+          limit: 20,
+          totalPages: 1
+        }
+      }
+    });
+  }
+
+  return request({
+    url: '/admin/reports',
+    method: 'get',
+    params,
+  });
+}
+
+/**
+ * 处理举报
+ * @param {string} reportId 举报ID
+ * @param {string} action 处理动作 (approved/rejected)
+ * @param {string} adminNote 管理员备注
+ */
+export function processReport(reportId, action, adminNote) {
+  if (config.useMockData) {
+    return Promise.resolve({
+      data: {
+        status: 'success',
+        message: `举报已${action === 'approved' ? '通过' : '驳回'}处理`
+      }
+    });
+  }
+
+  return request({
+    url: `/admin/reports/${reportId}/process`,
+    method: 'post',
+    data: { action, adminNote },
+  });
+}
+
+/**
+ * 获取举报统计信息
+ */
+export function getAdminReportsStats() {
+  if (config.useMockData) {
+    return Promise.resolve({
+      data: {
+        status: 'success',
+        data: {
+          total: 15,
+          pending: 5,
+          approved: 8,
+          rejected: 2,
+          recent: 3
+        }
+      }
+    });
+  }
+
+  return request({
+    url: '/admin/reports/stats',
+    method: 'get',
+  });
 } 

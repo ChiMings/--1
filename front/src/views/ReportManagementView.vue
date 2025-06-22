@@ -45,21 +45,15 @@
       <div class="filter-options">
         <select v-model="selectedStatus" @change="filterReports" class="filter-select">
           <option value="">全部状态</option>
-          <option value="pending">待处理</option>
-          <option value="resolved">已处理</option>
-          <option value="rejected">已驳回</option>
+          <option value="待处理">待处理</option>
+          <option value="已处理">已处理</option>
+          <option value="已驳回">已驳回</option>
         </select>
         
-        <select v-model="selectedType" @change="filterReports" class="filter-select">
-          <option value="">全部类型</option>
-          <option value="product">商品举报</option>
-          <option value="comment">评论举报</option>
-          <option value="user">用户举报</option>
-        </select>
+
         
         <select v-model="sortBy" @change="sortReports" class="filter-select">
           <option value="createdAt">举报时间</option>
-          <option value="priority">优先级</option>
           <option value="status">状态</option>
         </select>
         
@@ -89,12 +83,6 @@
         >
           <div class="report-header">
             <div class="report-info">
-              <span :class="['report-type', getTypeClass(report.type)]">
-                {{ getTypeText(report.type) }}
-              </span>
-              <span :class="['report-priority', getPriorityClass(report.priority)]">
-                {{ getPriorityText(report.priority) }}
-              </span>
               <span class="report-time">{{ formatDate(report.createdAt) }}</span>
             </div>
             <span :class="['report-status', getStatusClass(report.status)]">
@@ -106,29 +94,51 @@
             <div class="report-reason">
               <strong>举报原因：</strong>{{ report.reason }}
             </div>
-            <div v-if="report.description" class="report-description">
-              <strong>详细描述：</strong>{{ report.description }}
+            <div v-if="report.content" class="report-description">
+              <strong>详细描述：</strong>{{ report.content }}
             </div>
-            <div class="report-target">
-              <strong>举报对象：</strong>
-              <a 
-                v-if="report.type === 'product'"
-                @click="viewTarget(report)" 
-                class="target-link"
-              >
-                {{ report.targetTitle }}
-              </a>
-              <span v-else>{{ report.targetTitle }}</span>
+            <div v-if="report.product" class="report-target">
+              <strong>举报商品：</strong>
+              <div class="product-info">
+                <div class="product-thumbnail">
+                  <img 
+                    :src="getProductImage(report.product)" 
+                    :alt="report.product.name"
+                    @error="handleImageError"
+                  />
+                </div>
+                <div class="product-details">
+                  <div class="product-name">{{ report.product.name }}</div>
+                  <div class="product-price">¥{{ report.product.price }}</div>
+                  <div class="product-status">
+                    <span :class="['status-badge', getProductStatusClass(report.product.status)]">
+                      {{ report.product.status }}
+                    </span>
+                  </div>
+                  <div v-if="report.product.seller" class="product-seller">
+                    卖家：{{ report.product.seller.nickname }}
+                  </div>
+                </div>
+                <div class="product-actions">
+                  <button 
+                    @click="viewProduct(report.product.id)"
+                    class="btn btn-xs btn-outline-primary"
+                  >
+                    查看商品
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="report-reporter">
               <strong>举报人：</strong>{{ report.reporter?.nickname || '匿名用户' }}
+              <span v-if="report.reporter?.studentId" class="reporter-id">({{ report.reporter.studentId }})</span>
             </div>
           </div>
           
           <div class="report-actions">
             <button 
-              v-if="report.status === 'pending'"
-              @click="processReport(report, 'resolved')"
+              v-if="report.status === '待处理'"
+              @click="processReport(report, 'approved')"
               class="btn btn-sm btn-success"
               title="确认处理"
             >
@@ -136,7 +146,7 @@
             </button>
             
             <button 
-              v-if="report.status === 'pending'"
+              v-if="report.status === '待处理'"
               @click="processReport(report, 'rejected')"
               class="btn btn-sm btn-warning"
               title="驳回举报"
@@ -183,20 +193,17 @@
     <div v-if="showProcessDialog" class="modal-overlay" @click="closeProcessDialog">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ processAction === 'resolved' ? '确认处理举报' : '驳回举报' }}</h3>
+          <h3>{{ processAction === 'approved' ? '确认处理举报' : '驳回举报' }}</h3>
           <button @click="closeProcessDialog" class="close-btn">&times;</button>
         </div>
         
         <div class="modal-body">
           <div class="report-summary">
             <div class="summary-item">
-              <strong>举报类型：</strong>{{ getTypeText(selectedReport?.type) }}
-            </div>
-            <div class="summary-item">
               <strong>举报原因：</strong>{{ selectedReport?.reason }}
             </div>
-            <div class="summary-item">
-              <strong>举报对象：</strong>{{ selectedReport?.targetTitle }}
+            <div v-if="selectedReport?.product" class="summary-item">
+              <strong>举报商品：</strong>{{ selectedReport?.product?.name }}
             </div>
           </div>
           
@@ -204,13 +211,13 @@
             <label>处理说明：</label>
             <textarea 
               v-model="processNote" 
-              :placeholder="processAction === 'resolved' ? '请说明处理结果...' : '请说明驳回原因...'"
+              :placeholder="processAction === 'approved' ? '请说明处理结果...' : '请说明驳回原因...'"
               rows="3"
             ></textarea>
           </div>
           
           <div class="process-warning">
-            <p v-if="processAction === 'resolved'">
+            <p v-if="processAction === 'approved'">
               ⚠️ 确认处理后，被举报内容将被相应处理，举报人会收到通知
             </p>
             <p v-else>
@@ -224,9 +231,9 @@
           <button 
             @click="confirmProcess"
             :disabled="!processNote.trim()"
-            :class="['btn', processAction === 'resolved' ? 'btn-success' : 'btn-warning']"
+            :class="['btn', processAction === 'approved' ? 'btn-success' : 'btn-warning']"
           >
-            {{ processAction === 'resolved' ? '确认处理' : '确认驳回' }}
+            {{ processAction === 'approved' ? '确认处理' : '确认驳回' }}
           </button>
         </div>
       </div>
@@ -239,6 +246,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { config } from '@/utils/config';
+import { getAdminReports, processReport as processReportAPI, getAdminReportsStats } from '@/api/admin';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -247,7 +255,7 @@ const userStore = useUserStore();
 const loading = ref(false);
 const reports = ref([]);
 const selectedStatus = ref('');
-const selectedType = ref('');
+
 const sortBy = ref('createdAt');
 const currentPage = ref(1);
 const pageSize = 10;
@@ -258,47 +266,7 @@ const selectedReport = ref(null);
 const processAction = ref('');
 const processNote = ref('');
 
-// 模拟举报数据
-const mockReports = [
-  {
-    id: 1,
-    type: 'product',
-    reason: '虚假商品信息',
-    description: '商品图片与描述不符，疑似欺诈',
-    targetId: 1,
-    targetTitle: '九成新罗技鼠标 MX Master 3',
-    reporter: { id: 3, nickname: '运动达人' },
-    status: 'pending',
-    priority: 'high',
-    createdAt: '2023-11-02T14:30:00Z'
-  },
-  {
-    id: 2,
-    type: 'comment',
-    reason: '恶意评论',
-    description: '评论内容包含人身攻击',
-    targetId: 2,
-    targetTitle: '商品评论："垃圾产品"',
-    reporter: { id: 1, nickname: '技术宅' },
-    status: 'pending',
-    priority: 'medium',
-    createdAt: '2023-11-01T16:20:00Z'
-  },
-  {
-    id: 3,
-    type: 'product',
-    reason: '价格异常',
-    description: '商品定价明显低于市场价，可能有问题',
-    targetId: 3,
-    targetTitle: 'Nike Air Max 270 运动鞋',
-    reporter: { id: 2, nickname: '书虫' },
-    status: 'resolved',
-    priority: 'low',
-    processNote: '已核实商品真实性，价格合理',
-    processedAt: '2023-10-30T10:00:00Z',
-    createdAt: '2023-10-29T12:15:00Z'
-  }
-];
+
 
 // 计算属性
 const isAdmin = computed(() => {
@@ -308,9 +276,9 @@ const isAdmin = computed(() => {
 
 const reportStats = computed(() => {
   const total = reports.value.length;
-  const pending = reports.value.filter(r => r.status === 'pending').length;
-  const resolved = reports.value.filter(r => r.status === 'resolved').length;
-  const rejected = reports.value.filter(r => r.status === 'rejected').length;
+  const pending = reports.value.filter(r => r.status === '待处理').length;
+  const resolved = reports.value.filter(r => r.status === '已处理').length;
+  const rejected = reports.value.filter(r => r.status === '已驳回').length;
   
   return { total, pending, resolved, rejected };
 });
@@ -323,21 +291,13 @@ const filteredReports = computed(() => {
     result = result.filter(report => report.status === selectedStatus.value);
   }
   
-  // 类型筛选
-  if (selectedType.value) {
-    result = result.filter(report => report.type === selectedType.value);
-  }
-  
   // 排序
   result.sort((a, b) => {
     switch (sortBy.value) {
       case 'createdAt':
         return new Date(b.createdAt) - new Date(a.createdAt);
-      case 'priority':
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
       case 'status':
-        const statusOrder = { pending: 3, resolved: 2, rejected: 1 };
+        const statusOrder = { '待处理': 3, '已处理': 2, '已驳回': 1 };
         return statusOrder[b.status] - statusOrder[a.status];
       default:
         return 0;
@@ -362,15 +322,22 @@ async function loadReports() {
   try {
     loading.value = true;
     
-    if (config.useMockData) {
-      reports.value = mockReports;
+    // 总是加载所有举报数据，不传递status参数
+    const response = await getAdminReports();
+    
+    console.log('API Response:', response.data);
+    
+    if (response.data.status === 'success') {
+      const apiData = response.data.data;
+      // API 返回的数据在 data.items 字段中
+      reports.value = apiData.items || [];
     } else {
-      // 这里应该调用真实的API
-      // const response = await getReportsList();
-      // reports.value = response.data;
+      console.error('API Error:', response.data.message);
+      reports.value = [];
     }
   } catch (error) {
     console.error('Failed to load reports:', error);
+    reports.value = [];
   } finally {
     loading.value = false;
   }
@@ -378,6 +345,7 @@ async function loadReports() {
 
 function filterReports() {
   currentPage.value = 1;
+  // 只改变页码，不重新加载数据，依靠 filteredReports computed 进行客户端筛选
 }
 
 function sortReports() {
@@ -386,16 +354,40 @@ function sortReports() {
 
 function refreshReports() {
   selectedStatus.value = '';
-  selectedType.value = '';
   sortBy.value = 'createdAt';
   currentPage.value = 1;
   loadReports();
 }
 
-function viewTarget(report) {
-  if (report.type === 'product') {
-    router.push(`/product/${report.targetId}`);
+function viewProduct(productId) {
+  router.push(`/product/${productId}`);
+}
+
+function getProductImage(product) {
+  if (product.images && product.images.length > 0) {
+    try {
+      const images = typeof product.images === 'string' 
+        ? JSON.parse(product.images) 
+        : product.images;
+      return images[0] || '/placeholder-image.jpg';
+    } catch (e) {
+      return '/placeholder-image.jpg';
+    }
   }
+  return '/placeholder-image.jpg';
+}
+
+function handleImageError(event) {
+  event.target.src = '/placeholder-image.jpg';
+}
+
+function getProductStatusClass(status) {
+  const statusMap = {
+    '在售': 'product-available',
+    '已售出': 'product-sold',
+    '已下架': 'product-removed'
+  };
+  return statusMap[status] || 'product-default';
 }
 
 function processReport(report, action) {
@@ -416,44 +408,16 @@ async function confirmProcess() {
   if (!selectedReport.value || !processNote.value.trim()) return;
   
   try {
-    if (config.useMockData) {
-      // 模拟处理举报
-      const index = reports.value.findIndex(r => r.id === selectedReport.value.id);
-      if (index !== -1) {
-        reports.value[index].status = processAction.value;
-        reports.value[index].processNote = processNote.value;
-        reports.value[index].processedAt = new Date().toISOString();
-      }
-      
-      // 如果是商品举报且处理为"已处理"，同时下架商品
-      if (processAction.value === 'resolved' && selectedReport.value.type === 'product') {
-        const confirm = window.confirm('确定要处理此举报并下架相关商品吗？');
-        if (confirm) {
-          // 这里应该调用下架商品的API
-          // await takeDownProduct(selectedReport.value.targetId);
-          
-          // 模拟下架商品（在实际项目中，这应该通过API调用）
-          console.log(`商品 ID ${selectedReport.value.targetId} 已被下架`);
-          
-          alert('举报已处理，相关商品已下架');
-        } else {
-          return; // 用户取消操作
-        }
-      } else {
-        const actionText = processAction.value === 'resolved' ? '处理' : '驳回';
-        alert(`举报已${actionText}`);
-      }
-    } else {
-      // 这里应该调用真实的API
-      // await processReportById(selectedReport.value.id, processAction.value, processNote.value);
-      
-      // 如果是商品举报且处理为"已处理"，同时下架商品
-      if (processAction.value === 'resolved' && selectedReport.value.type === 'product') {
-        // await takeDownProduct(selectedReport.value.targetId);
-      }
-    }
+    // 调用真实的API
+    await processReportAPI(selectedReport.value.id, processAction.value, processNote.value);
+    
+    const actionText = processAction.value === 'approved' ? '处理' : '驳回';
+    alert(`举报已${actionText}`);
     
     closeProcessDialog();
+    
+    // 处理完成后重新加载所有数据，确保显示最新状态
+    await loadReports();
   } catch (error) {
     console.error('Failed to process report:', error);
     alert('操作失败，请重试');
@@ -461,47 +425,26 @@ async function confirmProcess() {
 }
 
 function viewReportDetail(report) {
-  alert(`举报详情：\n\n类型：${getTypeText(report.type)}\n原因：${report.reason}\n描述：${report.description || '无'}\n状态：${getStatusText(report.status)}`);
+  alert(`举报详情：\n\n原因：${report.reason}\n描述：${report.content || '无'}\n状态：${getStatusText(report.status)}\n举报时间：${formatDate(report.createdAt)}`);
 }
 
 // 工具函数
-function getTypeText(type) {
-  const typeMap = {
-    'product': '商品举报',
-    'comment': '评论举报',
-    'user': '用户举报'
-  };
-  return typeMap[type] || type;
-}
-
-function getTypeClass(type) {
-  return `type-${type}`;
-}
-
 function getStatusText(status) {
   const statusMap = {
-    'pending': '待处理',
-    'resolved': '已处理',
-    'rejected': '已驳回'
+    '待处理': '待处理',
+    '已处理': '已处理',
+    '已驳回': '已驳回'
   };
   return statusMap[status] || status;
 }
 
 function getStatusClass(status) {
-  return `status-${status}`;
-}
-
-function getPriorityText(priority) {
-  const priorityMap = {
-    'high': '高',
-    'medium': '中',
-    'low': '低'
+  const statusMap = {
+    '待处理': 'status-pending',
+    '已处理': 'status-resolved',
+    '已驳回': 'status-rejected'
   };
-  return priorityMap[priority] || priority;
-}
-
-function getPriorityClass(priority) {
-  return `priority-${priority}`;
+  return statusMap[status] || 'status-default';
 }
 
 function formatDate(dateString) {
@@ -763,6 +706,86 @@ onMounted(() => {
   margin-bottom: 8px;
   font-size: 14px;
   color: #555;
+}
+
+.product-info {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+.product-thumbnail {
+  flex-shrink: 0;
+}
+
+.product-thumbnail img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.product-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.product-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.product-price {
+  color: #007bff;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.product-status .status-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.product-available {
+  background: #d4edda;
+  color: #155724;
+}
+
+.product-sold {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.product-removed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.product-seller {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.product-actions {
+  align-self: flex-start;
+}
+
+.btn-xs {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.reporter-id {
+  color: #666;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 .target-link {

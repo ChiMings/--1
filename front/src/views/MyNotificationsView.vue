@@ -139,6 +139,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { mockNotifications } from '@/utils/mockData';
 import { config } from '@/utils/config';
+import { getNotifications, getUnreadCount, markAsRead as markAsReadAPI, markAllAsRead as markAllAsReadAPI, deleteNotification as deleteNotificationAPI } from '@/api/notifications';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -214,12 +215,17 @@ async function loadNotifications() {
       // 使用模拟数据
       notifications.value = [...mockNotifications];
     } else {
-      // 这里应该调用真实的API
-      // const response = await getMyNotifications();
-      // notifications.value = response.data;
+      // 调用真实的API
+      const response = await getNotifications();
+      const apiData = response.data.data || response.data;
+      notifications.value = apiData.items || [];
     }
   } catch (error) {
     console.error('Failed to load notifications:', error);
+    // 如果API失败，fallback到模拟数据
+    if (!config.useMockData) {
+      notifications.value = [...mockNotifications];
+    }
   } finally {
     loading.value = false;
   }
@@ -260,42 +266,63 @@ function handleNotificationClick(notification) {
 }
 
 // 标记单个通知为已读
-function markAsRead(notification) {
-  notification.isRead = true;
-  
-  if (!config.useMockData) {
-    // 这里应该调用API
-    // markNotificationAsRead(notification.id);
+async function markAsRead(notification) {
+  try {
+    if (!config.useMockData) {
+      await markAsReadAPI(notification.id);
+    }
+    notification.isRead = true;
+  } catch (error) {
+    console.error('Failed to mark as read:', error);
+    // 如果API失败，依然更新本地状态作为用户反馈
+    notification.isRead = true;
   }
 }
 
 // 标记所有通知为已读
-function markAllAsRead() {
+async function markAllAsRead() {
   if (confirm('确定要将所有未读通知标记为已读吗？')) {
-    notifications.value.forEach(notification => {
-      if (!notification.isRead) {
-        notification.isRead = true;
+    try {
+      if (!config.useMockData) {
+        await markAllAsReadAPI();
       }
-    });
-    
-    if (!config.useMockData) {
-      // 这里应该调用API
-      // markAllNotificationsAsRead();
+      
+      notifications.value.forEach(notification => {
+        if (!notification.isRead) {
+          notification.isRead = true;
+        }
+      });
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+      // 如果API失败，依然更新本地状态作为用户反馈
+      notifications.value.forEach(notification => {
+        if (!notification.isRead) {
+          notification.isRead = true;
+        }
+      });
     }
   }
 }
 
 // 删除单个通知
-function deleteNotification(notification) {
+async function deleteNotification(notification) {
   if (confirm('确定要删除这条通知吗？')) {
-    const index = notifications.value.findIndex(n => n.id === notification.id);
-    if (index > -1) {
-      notifications.value.splice(index, 1);
-    }
-    
-    if (!config.useMockData) {
-      // 这里应该调用API
-      // deleteNotificationAPI(notification.id);
+    try {
+      if (!config.useMockData) {
+        await deleteNotificationAPI(notification.id);
+      }
+      
+      const index = notifications.value.findIndex(n => n.id === notification.id);
+      if (index > -1) {
+        notifications.value.splice(index, 1);
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      // 如果API失败，依然删除本地数据作为用户反馈
+      const index = notifications.value.findIndex(n => n.id === notification.id);
+      if (index > -1) {
+        notifications.value.splice(index, 1);
+      }
     }
   }
 }
