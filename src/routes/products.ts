@@ -463,7 +463,7 @@ router.get('/:id/comments', async (req, res) => {
 });
 
 // 添加评论
-router.post('/:id/comments/create', async (req, res) => {
+router.post('/:id/comments/create', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { content } = req.body;
@@ -472,8 +472,20 @@ router.post('/:id/comments/create', async (req, res) => {
       return res.status(400).json(badRequest('评论内容不能为空'));
     }
 
-    // TODO: 从JWT获取当前用户ID
-    const userId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo';
+    // 验证商品是否存在且可评论
+    const product = await prisma.product.findUnique({
+      where: { 
+        id, 
+        deleted: false,
+        NOT: { status: '已下架' }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json(notFound('商品不存在或不可评论'));
+    }
+
+    const userId = req.user!.id;
 
     const newComment = await prisma.comment.create({
       data: {
@@ -503,6 +515,53 @@ router.post('/:id/comments/create', async (req, res) => {
   } catch (err) {
     console.error('添加评论失败:', err);
     return res.status(500).json(error('评论失败'));
+  }
+});
+
+// 删除评论
+router.post('/:productId/comments/:commentId/delete', authenticateToken, async (req, res) => {
+  try {
+    const { productId, commentId } = req.params;
+    const userId = req.user!.id;
+
+    // 查找评论
+    const comment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      include: {
+        product: {
+          select: { id: true, sellerId: true }
+        }
+      }
+    });
+
+    if (!comment || comment.deleted) {
+      return res.status(404).json(notFound('评论不存在'));
+    }
+
+    if (comment.productId !== productId) {
+      return res.status(400).json(badRequest('评论与商品不匹配'));
+    }
+
+    // 权限检查：评论作者、商品发布者、管理员可以删除评论
+    const userRole = req.user!.role;
+    const isCommentAuthor = comment.userId === userId;
+    const isProductOwner = comment.product.sellerId === userId;
+    const isAdmin = userRole === '管理员' || userRole === '超级管理员';
+
+    if (!isCommentAuthor && !isProductOwner && !isAdmin) {
+      return res.status(403).json(error('无权限删除此评论'));
+    }
+
+    // 软删除评论
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: { deleted: true }
+    });
+
+    return res.json(success('评论删除成功'));
+  } catch (err) {
+    console.error('删除评论失败:', err);
+    return res.status(500).json(error('删除失败'));
   }
 });
 

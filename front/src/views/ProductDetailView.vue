@@ -255,7 +255,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { getProductDetail, favoriteProduct, unfavoriteProduct, deleteComment } from '@/api/products';
+import { getProductDetail, favoriteProduct, unfavoriteProduct, getProductComments, createComment, deleteComment } from '@/api/products';
 import { mockComments } from '@/utils/mockData';
 import { config } from '@/utils/config';
 
@@ -290,25 +290,35 @@ async function loadProduct() {
   try {
     loading.value = true;
     const productId = route.params.id;
-    const response = await getProductDetail(productId);
     
-    // 处理后端返回的数据结构
-    if (response.data.status === 'success') {
-      product.value = response.data.data;
+    // 并行加载商品详情和评论
+    const [productResponse, commentsResponse] = await Promise.all([
+      getProductDetail(productId),
+      getProductComments(productId, { page: 1, limit: 20 })
+    ]);
+    
+    // 处理商品详情
+    if (productResponse.data.status === 'success') {
+      product.value = productResponse.data.data;
     } else {
-      console.error('Failed to load product:', response.data.message);
+      console.error('Failed to load product:', productResponse.data.message);
       product.value = null;
+      return;
     }
     
-    // 加载评论（模拟数据）
-    if (config.useMockData) {
-      comments.value = mockComments.filter(comment => 
-        comment.productId === parseInt(productId)
-      );
+    // 处理评论数据
+    if (commentsResponse.data.status === 'success') {
+      const commentsData = commentsResponse.data.data;
+      comments.value = commentsData.items || [];
+    } else {
+      console.error('Failed to load comments:', commentsResponse.data.message);
+      comments.value = [];
     }
+    
   } catch (error) {
     console.error('Failed to load product:', error);
     product.value = null;
+    comments.value = [];
   } finally {
     loading.value = false;
   }
@@ -407,26 +417,24 @@ async function submitComment() {
   try {
     submittingComment.value = true;
     
-    // 模拟发表评论
-    const comment = {
-      id: Date.now(),
-      productId: product.value.id,
-      content: newComment.value,
-      author: {
-        id: userStore.userInfo.id,
-        nickname: userStore.userInfo.nickname
-      },
-      createdAt: new Date().toISOString()
-    };
+    const response = await createComment(product.value.id, { 
+      content: newComment.value.trim() 
+    });
     
-    comments.value.unshift(comment);
-    newComment.value = '';
-    
-    // 这里应该调用真实的API
-    // await createComment(product.value.id, { content: newComment.value });
+    if (response.data.status === 'success') {
+      // 添加新评论到列表开头
+      comments.value.unshift(response.data.data);
+      newComment.value = '';
+      
+      // 更新商品评论数
+      if (product.value._count) {
+        product.value._count.comments++;
+      }
+    }
     
   } catch (error) {
     console.error('Failed to submit comment:', error);
+    alert('发表评论失败，请重试');
   } finally {
     submittingComment.value = false;
   }
@@ -456,15 +464,22 @@ async function handleDeleteComment(comment) {
   }
   
   try {
-    await deleteComment(comment.id);
+    const response = await deleteComment(product.value.id, comment.id);
     
-    // 从本地评论列表中移除
-    const index = comments.value.findIndex(c => c.id === comment.id);
-    if (index !== -1) {
-      comments.value.splice(index, 1);
+    if (response.data.status === 'success') {
+      // 从本地评论列表中移除
+      const index = comments.value.findIndex(c => c.id === comment.id);
+      if (index !== -1) {
+        comments.value.splice(index, 1);
+        
+        // 更新商品评论数
+        if (product.value._count) {
+          product.value._count.comments--;
+        }
+      }
+      
+      alert('评论删除成功');
     }
-    
-    alert('评论删除成功');
   } catch (error) {
     console.error('Failed to delete comment:', error);
     alert('删除评论失败，请重试');
