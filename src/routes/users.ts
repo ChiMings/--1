@@ -195,6 +195,13 @@ router.get('/me/products', authenticateToken, async (req, res) => {
         orderBy,
         include: {
           category: true,
+          seller: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar: true
+            }
+          },
           _count: {
             select: {
               favorites: true,
@@ -210,10 +217,6 @@ router.get('/me/products', authenticateToken, async (req, res) => {
     const processedProducts = products.map(product => ({
       ...product,
       images: product.images ? JSON.parse(product.images) : [],
-      seller: {
-        id: req.user!.id,
-        nickname: req.user!.studentId, // 临时使用studentId作为nickname
-      }
     }));
 
     return res.json(success('获取商品列表成功', {
