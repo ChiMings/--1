@@ -218,4 +218,14 @@ export function getAdminReportsStats() {
     url: '/admin/reports/stats',
     method: 'get',
   });
-} 
+}
+
+/**
+ * 获取数据看板统计信息
+ */
+export function getDashboardStats() {
+  return request({
+    url: '/admin/dashboard/stats',
+    method: 'get',
+  });
+}
