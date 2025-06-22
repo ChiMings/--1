@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { success, error, notFound, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
+import { sendTradeNotification, sendCommentNotification, NotificationType } from '../utils/notificationService';
 
 const router = Router();
 
@@ -311,6 +312,20 @@ router.post('/:id/status', async (req, res) => {
       return res.status(400).json(badRequest('状态不能为空'));
     }
 
+    // 获取商品信息
+    const product = await prisma.product.findUnique({
+      where: { id, deleted: false },
+      include: {
+        seller: {
+          select: { id: true }
+        }
+      }
+    });
+
+    if (!product) {
+      return res.status(404).json(notFound('商品不存在'));
+    }
+
     const updateData: any = { status };
     if (status === '已售出') {
       updateData.soldAt = new Date();
@@ -510,6 +525,16 @@ router.post('/:id/comments/create', authenticateToken, async (req, res) => {
       author: newComment.user,
       createdAt: newComment.createdAt
     };
+
+    // 发送通知给卖家（不给自己发通知）
+    if (product.sellerId !== userId) {
+      await sendCommentNotification(
+        product.sellerId,
+        product.name,
+        newComment.user.nickname || '匿名用户',
+        content.trim()
+      );
+    }
 
     return res.status(201).json(success('评论发表成功', processedComment));
   } catch (err) {

@@ -5,7 +5,6 @@ export enum NotificationType {
   // 系统通知
   SYSTEM = 'SYSTEM',
   // 交易相关
-  PRODUCT_SOLD = 'PRODUCT_SOLD',
   PRODUCT_REMOVED = 'PRODUCT_REMOVED',
   // 评论相关
   NEW_COMMENT = 'NEW_COMMENT',
@@ -13,7 +12,6 @@ export enum NotificationType {
   NEW_MESSAGE = 'NEW_MESSAGE',
   // 举报相关
   REPORT_SUBMITTED = 'REPORT_SUBMITTED',
-  REPORT_PROCESSED = 'REPORT_PROCESSED',
   // 用户相关
   ROLE_CHANGED = 'ROLE_CHANGED',
   ACCOUNT_STATUS = 'ACCOUNT_STATUS'
@@ -134,10 +132,6 @@ export async function sendTradeNotification(userId: string, type: NotificationTy
   let content = '';
 
   switch (type) {
-    case NotificationType.PRODUCT_SOLD:
-      title = '商品交易成功';
-      content = `您的商品 "${productName}" 已成功售出！${additionalInfo || ''}`;
-      break;
     case NotificationType.PRODUCT_REMOVED:
       title = '商品被下架';
       content = `您的商品 "${productName}" 因违规被管理员下架。${additionalInfo || ''}`;
@@ -155,31 +149,7 @@ export async function sendTradeNotification(userId: string, type: NotificationTy
   });
 }
 
-/**
- * 发送举报处理结果通知
- */
-export async function sendReportProcessedNotification(userId: string, productName: string, result: 'approved' | 'rejected', adminNote?: string): Promise<void> {
-  const title = '举报处理结果';
-  let content = '';
 
-  if (result === 'approved') {
-    content = `您举报的商品 "${productName}" 经核实确实存在问题，已进行相应处理。`;
-  } else {
-    content = `您举报的商品 "${productName}" 经核实未发现问题，举报被驳回。`;
-  }
-
-  if (adminNote) {
-    content += ` 管理员备注：${adminNote}`;
-  }
-
-  await createNotification({
-    type: NotificationType.REPORT_PROCESSED,
-    title,
-    content,
-    userId,
-    recipientType: 'user'
-  });
-}
 
 /**
  * 发送角色变更通知
@@ -223,6 +193,44 @@ export async function sendAccountStatusNotification(userId: string, status: stri
     title,
     content,
     userId,
+    recipientType: 'user'
+  });
+}
+
+/**
+ * 发送新用户欢迎通知
+ */
+export async function sendWelcomeNotification(userId: string, userName: string): Promise<void> {
+  await createNotification({
+    type: NotificationType.SYSTEM,
+    title: '欢迎使用校园二手交易平台！',
+    content: `${userName}，欢迎加入我们的校园二手交易平台！在这里您可以发布闲置物品、寻找需要的商品，享受安全便捷的校园交易体验。如有任何问题，请随时联系我们。`,
+    userId,
+    recipientType: 'user'
+  });
+}
+
+/**
+ * 发送系统公告通知给所有用户
+ */
+export async function sendSystemAnnouncementNotification(title: string, content: string): Promise<void> {
+  await createNotification({
+    type: NotificationType.SYSTEM,
+    title: `系统公告：${title}`,
+    content,
+    recipientType: 'all'
+  });
+}
+
+/**
+ * 发送商品评论通知
+ */
+export async function sendCommentNotification(sellerId: string, productName: string, commenterName: string, commentContent: string): Promise<void> {
+  await createNotification({
+    type: NotificationType.NEW_COMMENT,
+    title: '收到新评论',
+    content: `${commenterName} 评论了您的商品 "${productName}"：${commentContent.substring(0, 50)}${commentContent.length > 50 ? '...' : ''}`,
+    userId: sellerId,
     recipientType: 'user'
   });
 } 

@@ -1,20 +1,17 @@
 import { Router } from 'express';
 import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
-import { getCurrentUserId } from '../utils/auth';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
 // 获取通知列表
-router.get('/', async (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
 
-    // 从JWT获取当前用户ID
-    const currentUserId = getCurrentUserId(req);
-    if (!currentUserId) {
-      return res.status(401).json(error('请先登录'));
-    }
+    // 从认证中间件获取当前用户ID
+    const currentUserId = req.user!.id;
 
     // 查询用户的通知列表
     const notifications = await prisma.notification.findMany({
@@ -59,13 +56,10 @@ router.get('/', async (req, res) => {
 });
 
 // 获取未读通知数
-router.get('/unread-count', async (req, res) => {
+router.get('/unread-count', authenticateToken, async (req, res) => {
   try {
-    // 从JWT获取当前用户ID
-    const currentUserId = getCurrentUserId(req);
-    if (!currentUserId) {
-      return res.status(401).json(error('请先登录'));
-    }
+    // 从认证中间件获取当前用户ID
+    const currentUserId = req.user!.id;
 
     // 查询用户的未读通知数量
     const unreadCount = await prisma.notification.count({
@@ -85,15 +79,12 @@ router.get('/unread-count', async (req, res) => {
 });
 
 // 标记通知为已读
-router.post('/read', async (req, res) => {
+router.post('/read', authenticateToken, async (req, res) => {
   try {
     const { notificationId, readAll } = req.body;
 
-    // 从JWT获取当前用户ID
-    const currentUserId = getCurrentUserId(req);
-    if (!currentUserId) {
-      return res.status(401).json(error('请先登录'));
-    }
+    // 从认证中间件获取当前用户ID
+    const currentUserId = req.user!.id;
 
     if (readAll) {
       // 标记所有通知为已读
@@ -134,15 +125,12 @@ router.post('/read', async (req, res) => {
 });
 
 // 删除通知
-router.delete('/:notificationId', async (req, res) => {
+router.delete('/:notificationId', authenticateToken, async (req, res) => {
   try {
     const { notificationId } = req.params;
 
-    // 从JWT获取当前用户ID
-    const currentUserId = getCurrentUserId(req);
-    if (!currentUserId) {
-      return res.status(401).json(error('请先登录'));
-    }
+    // 从认证中间件获取当前用户ID
+    const currentUserId = req.user!.id;
 
     // 验证通知是否存在且属于当前用户
     const notification = await prisma.notification.findUnique({
@@ -167,6 +155,28 @@ router.delete('/:notificationId', async (req, res) => {
   } catch (err) {
     console.error('Delete notification error:', err);
     return res.status(500).json(error('删除失败'));
+  }
+});
+
+// 清空所有通知
+router.delete('/', authenticateToken, async (req, res) => {
+  try {
+    // 从认证中间件获取当前用户ID
+    const currentUserId = req.user!.id;
+
+    // 软删除当前用户的所有通知
+    await prisma.notification.updateMany({
+      where: { 
+        userId: currentUserId,
+        deleted: false 
+      },
+      data: { deleted: true }
+    });
+
+    return res.json(success('所有通知已清空'));
+  } catch (err) {
+    console.error('Clear all notifications error:', err);
+    return res.status(500).json(error('清空通知失败'));
   }
 });
 

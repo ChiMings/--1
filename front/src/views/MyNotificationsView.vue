@@ -57,6 +57,12 @@
         <p>加载中...</p>
       </div>
 
+      <div v-else-if="!userStore.isLoggedIn" class="empty-notifications">
+        <div class="empty-icon">🔐</div>
+        <h3>请先登录</h3>
+        <p>登录后即可查看您的系统通知</p>
+      </div>
+
       <div v-else-if="filteredNotifications.length === 0" class="empty-notifications">
         <div class="empty-icon">🔔</div>
         <h3>暂无{{ getFilterLabel() }}通知</h3>
@@ -137,9 +143,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
-import { mockNotifications } from '@/utils/mockData';
-import { config } from '@/utils/config';
-import { getNotifications, getUnreadCount, markAsRead as markAsReadAPI, markAllAsRead as markAllAsReadAPI, deleteNotification as deleteNotificationAPI } from '@/api/notifications';
+import { getNotifications, getUnreadCount, markAsRead as markAsReadAPI, markAllAsRead as markAllAsReadAPI, deleteNotification as deleteNotificationAPI, clearAllNotifications as clearAllNotificationsAPI } from '@/api/notifications';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -211,21 +215,23 @@ async function loadNotifications() {
   try {
     loading.value = true;
     
-    if (config.useMockData) {
-      // 使用模拟数据
-      notifications.value = [...mockNotifications];
-    } else {
-      // 调用真实的API
-      const response = await getNotifications();
-      const apiData = response.data.data || response.data;
-      notifications.value = apiData.items || [];
-    }
+    // 调用真实的API
+    const response = await getNotifications();
+    console.log('通知API响应:', response);
+    
+    // 使用内存中的数据处理经验
+    const apiData = response.data.data || response.data;
+    notifications.value = apiData.items || [];
+    
+    console.log('加载的通知数据:', notifications.value);
   } catch (error) {
-    console.error('Failed to load notifications:', error);
-    // 如果API失败，fallback到模拟数据
-    if (!config.useMockData) {
-      notifications.value = [...mockNotifications];
-    }
+    console.error('加载通知失败:', error);
+    notifications.value = [];
+    
+    // 不再强制跳转到登录页，由request拦截器统一处理认证错误
+    // 只显示友好的错误信息
+    const errorMessage = error.response?.data?.message || error.message || '加载通知失败，请稍后重试';
+    alert(errorMessage);
   } finally {
     loading.value = false;
   }
@@ -268,14 +274,11 @@ function handleNotificationClick(notification) {
 // 标记单个通知为已读
 async function markAsRead(notification) {
   try {
-    if (!config.useMockData) {
-      await markAsReadAPI(notification.id);
-    }
+    await markAsReadAPI(notification.id);
     notification.isRead = true;
   } catch (error) {
-    console.error('Failed to mark as read:', error);
-    // 如果API失败，依然更新本地状态作为用户反馈
-    notification.isRead = true;
+    console.error('标记已读失败:', error);
+    alert('标记已读失败，请稍后重试');
   }
 }
 
@@ -283,9 +286,7 @@ async function markAsRead(notification) {
 async function markAllAsRead() {
   if (confirm('确定要将所有未读通知标记为已读吗？')) {
     try {
-      if (!config.useMockData) {
-        await markAllAsReadAPI();
-      }
+      await markAllAsReadAPI();
       
       notifications.value.forEach(notification => {
         if (!notification.isRead) {
@@ -293,13 +294,8 @@ async function markAllAsRead() {
         }
       });
     } catch (error) {
-      console.error('Failed to mark all as read:', error);
-      // 如果API失败，依然更新本地状态作为用户反馈
-      notifications.value.forEach(notification => {
-        if (!notification.isRead) {
-          notification.isRead = true;
-        }
-      });
+      console.error('标记所有已读失败:', error);
+      alert('标记所有已读失败，请稍后重试');
     }
   }
 }
@@ -308,33 +304,29 @@ async function markAllAsRead() {
 async function deleteNotification(notification) {
   if (confirm('确定要删除这条通知吗？')) {
     try {
-      if (!config.useMockData) {
-        await deleteNotificationAPI(notification.id);
-      }
+      await deleteNotificationAPI(notification.id);
       
       const index = notifications.value.findIndex(n => n.id === notification.id);
       if (index > -1) {
         notifications.value.splice(index, 1);
       }
     } catch (error) {
-      console.error('Failed to delete notification:', error);
-      // 如果API失败，依然删除本地数据作为用户反馈
-      const index = notifications.value.findIndex(n => n.id === notification.id);
-      if (index > -1) {
-        notifications.value.splice(index, 1);
-      }
+      console.error('删除通知失败:', error);
+      alert('删除通知失败，请稍后重试');
     }
   }
 }
 
 // 清空所有通知
-function clearAllNotifications() {
+async function clearAllNotifications() {
   if (confirm('确定要清空所有通知吗？此操作不可恢复。')) {
-    notifications.value = [];
-    
-    if (!config.useMockData) {
-      // 这里应该调用API
-      // clearAllNotificationsAPI();
+    try {
+      await clearAllNotificationsAPI();
+      notifications.value = [];
+      console.log('所有通知已清空');
+    } catch (error) {
+      console.error('清空通知失败:', error);
+      alert('清空通知失败，请稍后重试');
     }
   }
 }
@@ -411,6 +403,12 @@ function formatTime(timeString) {
 
 // 组件挂载
 onMounted(() => {
+  // 检查登录状态
+  if (!userStore.isLoggedIn) {
+    console.log('用户未登录，不加载通知数据');
+    return;
+  }
+  
   loadNotifications();
 });
 </script>

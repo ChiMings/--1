@@ -44,11 +44,21 @@ service.interceptors.response.use(
       
       // 处理 401 未认证错误
       if (error.response?.status === 401) {
+        console.log('收到401错误，清除用户认证状态');
         userStore.logout();
-        return Promise.reject(error);
+        
+        // 只有在非登录页面时才跳转到登录页
+        const currentPath = window.location.pathname;
+        if (!currentPath.includes('/login')) {
+          // 延迟跳转，避免与其他导航冲突
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 100);
+        }
       }
     } catch (e) {
       // store 不可用时忽略
+      console.error('处理401错误时出现问题:', e);
     }
     
     // 处理其他错误
