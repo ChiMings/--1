@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
+import { sendReportProcessedNotification, sendTradeNotification, sendRoleChangeNotification, sendAccountStatusNotification, NotificationType } from '../utils/notificationService';
 
 const router = Router();
 
@@ -179,6 +180,11 @@ router.post('/users/:userId/role/update', requireAdmin, async (req, res) => {
       data: { role }
     });
 
+    // 发送角色变更通知
+    if (user.role !== role) {
+      await sendRoleChangeNotification(userId, role);
+    }
+
     return res.json(success('用户角色更新成功', {
       id: updatedUser.id,
       studentId: updatedUser.studentId,
@@ -195,7 +201,7 @@ router.post('/users/:userId/role/update', requireAdmin, async (req, res) => {
 router.post('/users/:userId/status/update', requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
     if (!status || !['正常', '禁用', '冻结'].includes(status)) {
       return res.status(400).json(badRequest('无效的用户状态'));
@@ -215,6 +221,11 @@ router.post('/users/:userId/status/update', requireAdmin, async (req, res) => {
       where: { id: userId },
       data: { status }
     });
+
+    // 发送状态变更通知
+    if (user.status !== status) {
+      await sendAccountStatusNotification(userId, status, reason);
+    }
 
     return res.json(success('用户状态更新成功', {
       id: updatedUser.id,
@@ -329,7 +340,14 @@ router.post('/products/:productId/remove', requireAdmin, async (req, res) => {
 
     // 检查商品是否存在
     const product = await prisma.product.findUnique({
-      where: { id: productId }
+      where: { id: productId },
+      include: {
+        seller: {
+          select: {
+            id: true
+          }
+        }
+      }
     });
 
     if (!product || product.deleted) {
@@ -344,7 +362,13 @@ router.post('/products/:productId/remove', requireAdmin, async (req, res) => {
       }
     });
 
-    // TODO: 发送通知给商品发布者
+    // 发送通知给商品发布者
+    await sendTradeNotification(
+      product.sellerId,
+      NotificationType.PRODUCT_REMOVED,
+      product.name,
+      `商品已被管理员下架。${reason ? `原因：${reason}` : ''}`
+    );
 
     return res.json(success('商品下架成功'));
   } catch (err) {
@@ -424,21 +448,58 @@ router.post('/products/:productId/delete', requireAdmin, async (req, res) => {
 // 获取举报管理列表
 router.get('/reports', requireAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status = 'pending' } = req.query;
+    const { page = 1, limit = 20, status } = req.query;
+
+    // 状态映射：前端使用英文，后端存储中文
+    const statusMap: { [key: string]: string } = {
+      'pending': '待处理',
+      'approved': '已处理',
+      'rejected': '已驳回',
+      '待处理': '待处理',
+      '已处理': '已处理',
+      '已驳回': '已驳回'
+    };
+
+    // 构建查询条件
+    const whereCondition: any = { deleted: false };
+    
+    // 只有当明确传递了status参数时才添加状态筛选
+    if (status) {
+      const actualStatus = statusMap[status as string];
+      if (actualStatus) {
+        whereCondition.status = actualStatus;
+      }
+    }
 
     // 查询举报列表
     const [reports, total] = await Promise.all([
       prisma.report.findMany({
-        where: { 
-          status: status as string,
-          deleted: false 
-        },
+        where: whereCondition,
         include: {
           reporter: {
-            select: { id: true, studentId: true, name: true, nickname: true }
+            select: { 
+              id: true, 
+              studentId: true, 
+              name: true, 
+              nickname: true 
+            }
           },
           product: {
-            select: { id: true, name: true, sellerId: true }
+            select: { 
+              id: true, 
+              name: true, 
+              images: true,
+              price: true,
+              status: true,
+              sellerId: true,
+              seller: {
+                select: {
+                  id: true,
+                  nickname: true,
+                  studentId: true
+                }
+              }
+            }
           }
         },
         orderBy: { createdAt: 'desc' },
@@ -446,10 +507,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
         take: Number(limit)
       }),
       prisma.report.count({ 
-        where: { 
-          status: status as string,
-          deleted: false 
-        } 
+        where: whereCondition
       })
     ]);
 
@@ -459,18 +517,28 @@ router.get('/reports', requireAdmin, async (req, res) => {
       content: report.content,
       status: report.status,
       createdAt: report.createdAt.toISOString(),
-      reporter: report.reporter,
-      product: report.product
+      updatedAt: report.updatedAt.toISOString(),
+      reporter: {
+        id: report.reporter.id,
+        nickname: report.reporter.nickname,
+        studentId: report.reporter.studentId
+      },
+      product: report.product ? {
+        id: report.product.id,
+        name: report.product.name,
+        images: report.product.images,
+        price: report.product.price,
+        status: report.product.status,
+        seller: report.product.seller
+      } : null
     }));
 
     return res.json(success('获取举报列表成功', {
-      reports: formattedReports,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total,
-        totalPages: Math.ceil(total / Number(limit))
-      }
+      items: formattedReports,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+      totalPages: Math.ceil(total / Number(limit))
     }));
   } catch (err) {
     console.error('Get admin reports error:', err);
@@ -478,46 +546,7 @@ router.get('/reports', requireAdmin, async (req, res) => {
   }
 });
 
-// 处理举报
-router.post('/reports/:reportId/process', requireAdmin, async (req, res) => {
-  try {
-    const { reportId } = req.params;
-    const { action, adminNote } = req.body;
 
-    if (!action || !['approved', 'rejected'].includes(action)) {
-      return res.status(400).json(badRequest('无效的处理动作'));
-    }
-
-    // 检查举报是否存在
-    const report = await prisma.report.findUnique({
-      where: { id: reportId }
-    });
-
-    if (!report || report.deleted) {
-      return res.status(404).json(error('举报记录不存在'));
-    }
-
-    // 更新举报状态
-    await prisma.report.update({
-      where: { id: reportId },
-      data: {
-        status: action,
-        // adminNote 和 processedAt 字段需要先在 Prisma schema 中定义
-        updatedAt: new Date()
-      }
-    });
-
-    // 如果举报被批准，可以对相关商品或用户采取行动
-    if (action === 'approved' && report.productId) {
-      // TODO: 对被举报的商品采取行动（如下架）
-    }
-
-    return res.json(success('举报处理成功'));
-  } catch (err) {
-    console.error('Process report error:', err);
-    return res.status(500).json(error('处理举报失败'));
-  }
-});
 
 // 创建公告
 router.post('/notices/create', requireAdmin, async (req, res) => {
@@ -752,6 +781,132 @@ router.post('/categories/:categoryId/delete', requireAdmin, async (req, res) => 
   } catch (err) {
     console.error('Admin delete category error:', err);
     return res.status(500).json(error('删除分类失败'));
+  }
+});
+
+
+
+// 处理举报
+router.post('/reports/:reportId/process', requireAdmin, async (req, res) => {
+  try {
+    const { reportId } = req.params;
+    const { action, adminNote } = req.body;
+
+    if (!action || !['approved', 'rejected'].includes(action)) {
+      return res.status(400).json(badRequest('处理动作必须是 approved 或 rejected'));
+    }
+
+    // 查询举报记录
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      include: {
+        reporter: {
+          select: {
+            id: true,
+            nickname: true
+          }
+        },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            sellerId: true,
+            status: true,
+            seller: {
+              select: {
+                id: true,
+                nickname: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!report || report.deleted) {
+      return res.status(404).json(error('举报记录不存在'));
+    }
+
+    if (report.status !== '待处理') {
+      return res.status(400).json(badRequest('该举报已经处理过了'));
+    }
+
+    // 更新举报状态
+    const newStatus = action === 'approved' ? '已处理' : '已驳回';
+    await prisma.report.update({
+      where: { id: reportId },
+      data: { 
+        status: newStatus,
+        updatedAt: new Date()
+      }
+    });
+
+    // 发送通知给举报人
+    if (report.product) {
+      await sendReportProcessedNotification(
+        report.reporter.id,
+        report.product.name,
+        action,
+        adminNote
+      );
+
+      // 如果举报被认定为有效且商品还在售，则下架商品并通知卖家
+      if (action === 'approved' && report.product.status === '在售') {
+        // 下架商品
+        await prisma.product.update({
+          where: { id: report.product.id },
+          data: { status: '已下架' }
+        });
+
+        // 通知卖家商品被下架
+        await sendTradeNotification(
+          report.product.sellerId,
+          NotificationType.PRODUCT_REMOVED,
+          report.product.name,
+          `因举报核实违规，商品已被下架。${adminNote ? `管理员备注：${adminNote}` : ''}`
+        );
+      }
+    }
+
+    const actionText = action === 'approved' ? '通过' : '驳回';
+    return res.json(success(`举报已${actionText}处理`));
+  } catch (err) {
+    console.error('Process report error:', err);
+    return res.status(500).json(error('处理举报失败'));
+  }
+});
+
+// 获取举报统计信息
+router.get('/reports/stats', requireAdmin, async (req, res) => {
+  try {
+    const [totalReports, pendingReports, approvedReports, rejectedReports] = await Promise.all([
+      prisma.report.count({ where: { deleted: false } }),
+      prisma.report.count({ where: { status: '待处理', deleted: false } }),
+      prisma.report.count({ where: { status: '已处理', deleted: false } }),
+      prisma.report.count({ where: { status: '已驳回', deleted: false } })
+    ]);
+
+    // 获取最近7天的举报数据
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const recentReports = await prisma.report.count({
+      where: {
+        createdAt: { gte: sevenDaysAgo },
+        deleted: false
+      }
+    });
+
+    return res.json(success('获取举报统计成功', {
+      total: totalReports,
+      pending: pendingReports,
+      approved: approvedReports,
+      rejected: rejectedReports,
+      recent: recentReports
+    }));
+  } catch (err) {
+    console.error('Get reports stats error:', err);
+    return res.status(500).json(error('获取举报统计失败'));
   }
 });
 

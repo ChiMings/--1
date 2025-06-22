@@ -248,6 +248,67 @@
         </div>
       </div>
     </div>
+
+    <!-- 举报弹窗 -->
+    <div v-if="showReportDialog" class="modal-overlay" @click="closeReportDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>举报商品</h3>
+          <button @click="closeReportDialog" class="close-btn">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+          <div class="product-info-summary">
+            <div class="product-thumbnail">
+              <img :src="currentImage" :alt="product.name" />
+            </div>
+            <div class="product-details">
+              <div class="product-name">{{ product.name }}</div>
+              <div class="product-price">¥{{ product.price }}</div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>举报原因：<span class="required">*</span></label>
+            <select v-model="reportReason" class="form-control">
+              <option value="">请选择举报原因</option>
+              <option value="虚假信息">虚假商品信息</option>
+              <option value="商品质量问题">商品质量问题</option>
+              <option value="价格异常">价格明显异常</option>
+              <option value="违禁物品">违禁物品</option>
+              <option value="欺诈行为">欺诈行为</option>
+              <option value="重复发布">重复发布</option>
+              <option value="其他">其他问题</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>详细描述：</label>
+            <textarea 
+              v-model="reportContent" 
+              placeholder="请详细描述举报原因，有助于我们更好地处理..."
+              rows="4"
+              class="form-control"
+            ></textarea>
+          </div>
+          
+          <div class="report-warning">
+            <p>⚠️ 请确保举报内容真实有效，恶意举报将承担相应责任</p>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button @click="closeReportDialog" class="btn btn-secondary">取消</button>
+          <button 
+            @click="submitReport"
+            :disabled="!reportReason.trim() || submittingReport"
+            class="btn btn-danger"
+          >
+            {{ submittingReport ? '提交中...' : '提交举报' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -256,6 +317,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { getProductDetail, favoriteProduct, unfavoriteProduct, getProductComments, createComment, deleteComment } from '@/api/products';
+import { createReport } from '@/api/reports';
 import { mockComments } from '@/utils/mockData';
 import { config } from '@/utils/config';
 
@@ -270,6 +332,12 @@ const currentImageIndex = ref(0);
 const comments = ref([]);
 const newComment = ref('');
 const submittingComment = ref(false);
+
+// 举报相关数据
+const showReportDialog = ref(false);
+const reportReason = ref('');
+const reportContent = ref('');
+const submittingReport = ref(false);
 
 // 计算属性
 const currentImage = computed(() => {
@@ -405,8 +473,49 @@ function reportProduct() {
     return;
   }
   
-  if (confirm('确定要举报这个商品吗？')) {
-    alert('举报已提交，我们会尽快处理');
+  // 显示举报弹窗
+  showReportDialog.value = true;
+  reportReason.value = '';
+  reportContent.value = '';
+}
+
+// 关闭举报弹窗
+function closeReportDialog() {
+  showReportDialog.value = false;
+  reportReason.value = '';
+  reportContent.value = '';
+}
+
+// 提交举报
+async function submitReport() {
+  if (!reportReason.value.trim()) {
+    alert('请选择举报原因');
+    return;
+  }
+  
+  try {
+    submittingReport.value = true;
+    
+    const reportData = {
+      productId: product.value.id,
+      reason: reportReason.value,
+      content: reportContent.value.trim()
+    };
+    
+    const response = await createReport(reportData);
+    
+    if (response.data.status === 'success') {
+      alert('举报提交成功，我们会尽快处理');
+      closeReportDialog();
+    } else {
+      throw new Error(response.data.message || '举报提交失败');
+    }
+    
+  } catch (error) {
+    console.error('Failed to submit report:', error);
+    alert(error.message || '举报提交失败，请重试');
+  } finally {
+    submittingReport.value = false;
   }
 }
 
@@ -1084,5 +1193,154 @@ onMounted(() => {
     flex-direction: column;
     gap: 4px;
   }
+}
+
+/* 举报弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background: #f0f0f0;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.product-info-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.product-thumbnail {
+  flex-shrink: 0;
+}
+
+.product-thumbnail img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.product-details {
+  flex: 1;
+}
+
+.product-details .product-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.product-details .product-price {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #333;
+}
+
+.required {
+  color: #dc3545;
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.report-warning {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+}
+
+.report-warning p {
+  margin: 0;
+  color: #856404;
+  font-size: 13px;
 }
 </style> 

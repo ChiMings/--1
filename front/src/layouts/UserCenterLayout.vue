@@ -8,6 +8,7 @@
         <router-link to="/user/favorites">我的收藏</router-link>
         <router-link to="/user/messages">我的私信</router-link>
         <router-link to="/user/notifications">我的通知</router-link>
+        <router-link to="/user/reports">我的举报</router-link>
       </nav>
     </aside>
     <main class="content">
