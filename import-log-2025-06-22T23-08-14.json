@@ -1,0 +1,735 @@
+{
+  "timestamp": "2025-06-22T23:08:14.471Z",
+  "stats": {
+    "total": 26891,
+    "processed": 26891,
+    "skipped": 120,
+    "imported": 26771,
+    "errors": 0,
+    "duplicates": 42,
+    "invalidData": 78
+  },
+  "skippedRecords": [
+    {
+      "index": 2,
+      "name": "陶月月",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 7,
+      "name": "秦太三",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 8,
+      "name": "周亚敏",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 9,
+      "name": "许胜华",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 10,
+      "name": "宫飞",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11,
+      "name": "吴雪双",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 47,
+      "name": "赖启华",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 502,
+      "name": "高军",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 511,
+      "name": "王梓",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 916,
+      "name": "陈慧盈晰",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1142,
+      "name": "郭宏亮",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1170,
+      "name": "郭宇宁",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1269,
+      "name": "刘佳峰",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1647,
+      "name": "司强",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1751,
+      "name": "李耀宁",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1758,
+      "name": "叶梦楚",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1760,
+      "name": "曾亮",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1763,
+      "name": "时莹莹",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1765,
+      "name": "周奕",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1766,
+      "name": "张先起",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1768,
+      "name": "王思棋",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1775,
+      "name": "李林烨",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1792,
+      "name": "陈世茂",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1795,
+      "name": "赵凯",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 1912,
+      "name": "王丛",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 2029,
+      "name": "吕良辰",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 2035,
+      "name": "郭可",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 3155,
+      "name": "许一帆",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 4124,
+      "name": "测试001",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 5379,
+      "name": "管凌鹤",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 5454,
+      "name": "崔馨月",
+      "studentId": "1******3",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 5744,
+      "name": "赵立夫",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 7353,
+      "name": "杨静",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 7566,
+      "name": "王均艺",
+      "studentId": "1******2",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 7686,
+      "name": "夏语含",
+      "studentId": "1******2",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 8001,
+      "name": "窦紫睿",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 10748,
+      "name": "麦合普拉·库尔班",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11358,
+      "name": "刘一霏",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11360,
+      "name": "战利",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11361,
+      "name": "马宁",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11362,
+      "name": "石春卫",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11440,
+      "name": "姜丹",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11621,
+      "name": "国季",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11622,
+      "name": "郝芳",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 11765,
+      "name": "温琼毅",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13200,
+      "name": "程国辉",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13248,
+      "name": "于慧敏",
+      "studentId": "1******2",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 13299,
+      "name": "苏美佳",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13453,
+      "name": "马贺",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13602,
+      "name": "陈士钊",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13673,
+      "name": "谢丽民",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13674,
+      "name": "王明",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 13706,
+      "name": "崔玉玲",
+      "studentId": "1******3",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 15238,
+      "name": "王露露",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 15239,
+      "name": "李婉莹",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 15255,
+      "name": "屈春园",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 15256,
+      "name": "王东升",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 15491,
+      "name": "测试004",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 16936,
+      "name": "王嘉宁",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 17122,
+      "name": "刘凌冲",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 17123,
+      "name": "胡贺文",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 17167,
+      "name": "张雅捷",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18467,
+      "name": "岳章",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18512,
+      "name": "孔德旭",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18513,
+      "name": "朱园园",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18514,
+      "name": "赵博",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18515,
+      "name": "韦任",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18599,
+      "name": "测试002",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18600,
+      "name": "测试003",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 18769,
+      "name": "李少坤",
+      "studentId": "1******0",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 19412,
+      "name": "包顾泓",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20220,
+      "name": "王嘉璇",
+      "studentId": "1******3",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20234,
+      "name": "边思佳",
+      "studentId": "1******1",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20253,
+      "name": "金义评",
+      "studentId": "1******0",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20255,
+      "name": "王明月",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20292,
+      "name": "靳丰源",
+      "studentId": "1******8",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20372,
+      "name": "陶晨璐",
+      "studentId": "1******5",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20373,
+      "name": "焦彤彤",
+      "studentId": "1******7",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20374,
+      "name": "赵聪",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20375,
+      "name": "王丹",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20399,
+      "name": "田硕",
+      "studentId": "1******5",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20493,
+      "name": "赵俞琨",
+      "studentId": "1******7",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20575,
+      "name": "赵迎旭",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20590,
+      "name": "张帆",
+      "studentId": "1******5",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20603,
+      "name": "王迪",
+      "studentId": "1******4",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 20621,
+      "name": "秦似杰",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20622,
+      "name": "王南",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 20631,
+      "name": "鲍明月",
+      "studentId": "1******3",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22149,
+      "name": "张镇玺",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 22522,
+      "name": "孙亚东",
+      "studentId": "1******6",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22534,
+      "name": "刘泽昊",
+      "studentId": "1******4",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22542,
+      "name": "赵丹",
+      "studentId": "1******8",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22543,
+      "name": "孟瑶",
+      "studentId": "1******1",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22548,
+      "name": "周子洁",
+      "studentId": "1******9",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22549,
+      "name": "任俊峰",
+      "studentId": "1******9",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22550,
+      "name": "王佳木",
+      "studentId": "1******0",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22553,
+      "name": "陈赫",
+      "studentId": "1******1",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22565,
+      "name": "吴玉珊",
+      "studentId": "1******6",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22566,
+      "name": "权家乐",
+      "studentId": "1******8",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22568,
+      "name": "张宇",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 22578,
+      "name": "王涛",
+      "studentId": "1******3",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22580,
+      "name": "王璐",
+      "studentId": "1******0",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22608,
+      "name": "张伟健",
+      "studentId": "1******0",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22666,
+      "name": "刘轩志",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 22733,
+      "name": "翟钰婷",
+      "studentId": "1******6",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 22738,
+      "name": "韩永奇",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 22739,
+      "name": "徐兴梅",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 23823,
+      "name": "赵文楠",
+      "studentId": "1******6",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 23869,
+      "name": "王振钰",
+      "studentId": "1******9",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 24088,
+      "name": "师营营",
+      "studentId": "1******9",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 24362,
+      "name": "王晓婷",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 24363,
+      "name": "王琳倩",
+      "studentId": "未知",
+      "reason": "数据不全: 学号为空"
+    },
+    {
+      "index": 24434,
+      "name": "李思岐",
+      "studentId": "1******1",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 24438,
+      "name": "孙小宁",
+      "studentId": "1******8",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 24441,
+      "name": "余涛",
+      "studentId": "1******1",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 25644,
+      "name": "于飞跃",
+      "studentId": "1******9",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 26390,
+      "name": "丁禹同",
+      "studentId": "1******2",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 26392,
+      "name": "孙英伦",
+      "studentId": "1******4",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 26709,
+      "name": "孙茁铭",
+      "studentId": "1******8",
+      "reason": "本次导入中学号重复"
+    },
+    {
+      "index": 26855,
+      "name": "宫金烁",
+      "studentId": "1******5",
+      "reason": "本次导入中学号重复"
+    }
+  ],
+  "errorRecords": []
+}
