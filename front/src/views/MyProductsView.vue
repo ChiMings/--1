@@ -118,13 +118,28 @@ async function loadProducts() {
     }
 
     const response = await getUserProducts('me', params)
-    const data = response.data
     
-    products.value = data.items || []
-    total.value = data.total || 0
-    totalPages.value = Math.ceil(total.value / pageSize)
+    // 处理服务器返回的数据（双层嵌套格式）
+    const outerData = response.data
+    
+    // 检查是否是标准的API响应格式
+    if (outerData.status === 'success' && outerData.data) {
+      const data = outerData.data // 获取真正的数据
+      products.value = data.items || []
+      total.value = data.total || 0
+      totalPages.value = Math.ceil(total.value / pageSize)
+    } else {
+      // 兼容处理：如果不是标准格式，直接使用外层数据
+      products.value = outerData.items || []
+      total.value = outerData.total || 0
+      totalPages.value = Math.ceil(total.value / pageSize)
+    }
   } catch (error) {
     console.error('Failed to load products:', error)
+    // 如果是认证错误，可以在这里处理跳转到登录页
+    if (error.response?.status === 401) {
+      // 可以添加跳转到登录页的逻辑
+    }
   } finally {
     loading.value = false
   }

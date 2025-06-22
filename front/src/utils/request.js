@@ -10,10 +10,22 @@ const service = axios.create({
 // 请求拦截器 - 添加 token
 service.interceptors.request.use(
   (config) => {
-    const userStore = useUserStore();
-    if (userStore.token) {
-      config.headers.Authorization = `Bearer ${userStore.token}`;
+    // 优先从 localStorage 获取 token，然后尝试从 store 获取
+    let token = localStorage.getItem('token')
+    
+    if (!token) {
+      try {
+        const userStore = useUserStore();
+        token = userStore.token;
+      } catch (e) {
+        // store 不可用时忽略
+      }
     }
+    
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     return config;
   },
   (error) => {
@@ -27,12 +39,16 @@ service.interceptors.response.use(
     return response;
   },
   (error) => {
-    const userStore = useUserStore();
-    
-    // 处理 401 未认证错误
-    if (error.response?.status === 401) {
-      userStore.logout();
-      return Promise.reject(error);
+    try {
+      const userStore = useUserStore();
+      
+      // 处理 401 未认证错误
+      if (error.response?.status === 401) {
+        userStore.logout();
+        return Promise.reject(error);
+      }
+    } catch (e) {
+      // store 不可用时忽略
     }
     
     // 处理其他错误
