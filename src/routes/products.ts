@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { success, error, notFound, badRequest } from '../utils/response';
+import { prisma } from '../utils/database';
 
 const router = Router();
 
@@ -8,90 +9,90 @@ router.get('/', async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 10, 
+      limit = 20, 
       categoryId, 
-      search, 
-      minPrice, 
-      maxPrice,
+      keyword, 
+      status,
       sortBy = 'createdAt',
-      sortOrder = 'desc'
+      order = 'desc'
     } = req.query;
 
-    // TODO: 实现商品查询逻辑
-    const mockProducts = [
-      {
-        id: '1',
-        name: '二手MacBook Pro',
-        description: '9成新，配置高，适合学习工作',
-        price: 8500.00,
-        categoryId: 'cat1',
-        sellerId: 'user1',
-        contact: '13888888888',
-        status: '在售',
-        images: ['macbook1.jpg', 'macbook2.jpg'],
-        viewCount: 125,
-        createdAt: new Date().toISOString(),
-        category: { id: 'cat1', name: '电子产品' },
-        seller: { id: 'user1', name: '李四', nickname: '小李' }
-      },
-      {
-        id: '2',
-        name: '大学教材《高等数学》',
-        description: '同济版第七版，无笔记，九成新',
-        price: 25.00,
-        categoryId: 'cat2',
-        sellerId: 'user2',
-        contact: '13999999999',
-        status: '在售',
-        images: ['book1.jpg'],
-        viewCount: 45,
-        createdAt: new Date().toISOString(),
-        category: { id: 'cat2', name: '教材书籍' },
-        seller: { id: 'user2', name: '王五', nickname: '小王' }
-      }
-    ];
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
 
-    return res.json(success('获取商品列表成功', {
-      products: mockProducts,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total: 2,
-        totalPages: 1
-      }
-    }));
-  } catch (err) {
-    return res.status(500).json(error('获取失败'));
-  }
-});
-
-// 发布商品
-router.post('/', async (req, res) => {
-  try {
-    const { name, description, price, categoryId, contact, images } = req.body;
-
-    if (!name || !price || !categoryId) {
-      return res.status(400).json(badRequest('商品名称、价格和分类不能为空'));
-    }
-
-    // TODO: 实现商品创建逻辑
-    const newProduct = {
-      id: 'new-product-id',
-      name,
-      description: description || '',
-      price: Number(price),
-      categoryId,
-      sellerId: 'current-user-id', // TODO: 从JWT获取
-      contact: contact || '',
-      status: '在售',
-      images: images || [],
-      viewCount: 0,
-      createdAt: new Date().toISOString()
+    // 构建查询条件
+    const where: any = {
+      deleted: false,
     };
 
-    return res.status(201).json(success('商品发布成功', newProduct));
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (keyword) {
+      where.OR = [
+        { name: { contains: keyword as string } },
+        { description: { contains: keyword as string } }
+      ];
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    // 构建排序条件
+    const orderBy: any = {};
+    if (sortBy === 'price') {
+      orderBy.price = order === 'asc' ? 'asc' : 'desc';
+    } else {
+      orderBy.createdAt = order === 'asc' ? 'asc' : 'desc';
+    }
+
+    // 查询商品
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy,
+        include: {
+          category: true,
+          seller: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar: true
+            }
+          },
+          _count: {
+            select: {
+              favorites: true,
+              comments: true
+            }
+          }
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    // 处理图片数据
+    const processedProducts = products.map(product => ({
+      ...product,
+      images: product.images ? JSON.parse(product.images) : [],
+      isFavorite: false // TODO: 需要根据当前用户查询
+    }));
+
+    return res.json(success('获取商品列表成功', {
+      items: processedProducts,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
+    }));
   } catch (err) {
-    return res.status(500).json(error('发布失败'));
+    console.error('获取商品列表失败:', err);
+    return res.status(500).json(error('获取失败'));
   }
 });
 
@@ -100,73 +101,213 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: 根据ID查询商品并增加浏览量
-    const mockProduct = {
-      id,
-      name: '二手MacBook Pro',
-      description: '9成新，配置高，适合学习工作。包含原装充电器，无维修记录。',
-      price: 8500.00,
-      categoryId: 'cat1',
-      sellerId: 'user1',
-      contact: '13888888888',
-      status: '在售',
-      images: ['macbook1.jpg', 'macbook2.jpg', 'macbook3.jpg'],
-      viewCount: 126, // 浏览量+1
-      createdAt: new Date().toISOString(),
-      category: { id: 'cat1', name: '电子产品', description: '手机、电脑等电子设备' },
-      seller: { 
-        id: 'user1', 
-        name: '李四', 
-        nickname: '小李',
-        studentId: '20240002',
-        avatar: null,
-        createdAt: new Date().toISOString()
+    // 查询商品并增加浏览量
+    const product = await prisma.product.findUnique({
+      where: { id, deleted: false },
+      include: {
+        category: true,
+        seller: {
+          select: {
+            id: true,
+            nickname: true,
+            name: true,
+            studentId: true,
+            avatar: true,
+            createdAt: true
+          }
+        },
+        _count: {
+          select: {
+            favorites: true,
+            comments: true
+          }
+        }
       }
+    });
+
+    if (!product) {
+      return res.status(404).json(notFound('商品不存在'));
+    }
+
+    // 增加浏览量
+    await prisma.product.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } }
+    });
+
+    // 处理图片数据
+    const processedProduct = {
+      ...product,
+      images: product.images ? JSON.parse(product.images) : [],
+      isFavorite: false // TODO: 需要根据当前用户查询
     };
 
-    return res.json(success('获取商品详情成功', mockProduct));
+    return res.json(success('获取商品详情成功', processedProduct));
   } catch (err) {
+    console.error('获取商品详情失败:', err);
     return res.status(500).json(error('获取失败'));
   }
 });
 
-// 更新商品
-router.put('/:id', async (req, res) => {
+// 发布商品
+router.post('/create', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, description, price, categoryId, contact, status, images } = req.body;
+    const { name, description, price, categoryId, contact, images } = req.body;
 
-    // TODO: 验证用户权限（只能更新自己的商品）
-    // TODO: 实现商品更新逻辑
+    if (!name || !price || !categoryId) {
+      return res.status(400).json(badRequest('商品名称、价格和分类不能为空'));
+    }
 
-    const updatedProduct = {
-      id,
-      name: name || '二手MacBook Pro',
-      description: description || '9成新，配置高，适合学习工作',
-      price: price ? Number(price) : 8500.00,
-      categoryId: categoryId || 'cat1',
-      contact: contact || '13888888888',
-      status: status || '在售',
-      images: images || ['macbook1.jpg'],
-      updatedAt: new Date().toISOString()
+    // TODO: 从JWT获取当前用户ID，这里暂时使用固定用户ID
+    const sellerId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo'; // 默认用户ID
+
+    // 验证分类是否存在
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId, deleted: false }
+    });
+
+    if (!category) {
+      return res.status(400).json(badRequest('指定的分类不存在'));
+    }
+
+    const newProduct = await prisma.product.create({
+      data: {
+        name,
+        description: description || '',
+        price: parseFloat(price),
+        categoryId,
+        sellerId,
+        contact: contact || '',
+        images: images ? JSON.stringify(images) : null,
+        status: '在售'
+      },
+      include: {
+        category: true,
+        seller: {
+          select: {
+            id: true,
+            nickname: true,
+            avatar: true
+          }
+        }
+      }
+    });
+
+    // 处理返回数据
+    const processedProduct = {
+      ...newProduct,
+      images: newProduct.images ? JSON.parse(newProduct.images) : [],
+      isFavorite: false
     };
 
-    return res.json(success('商品更新成功', updatedProduct));
+    return res.status(201).json(success('商品发布成功', processedProduct));
   } catch (err) {
+    console.error('发布商品失败:', err);
+    return res.status(500).json(error('发布失败'));
+  }
+});
+
+// 更新商品信息
+router.post('/:id/update', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, price, categoryId, contact, images } = req.body;
+
+    // 验证商品是否存在
+    const existingProduct = await prisma.product.findUnique({
+      where: { id, deleted: false }
+    });
+
+    if (!existingProduct) {
+      return res.status(404).json(notFound('商品不存在'));
+    }
+
+    // TODO: 验证用户权限（只能更新自己的商品）
+
+    // 构建更新数据
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (categoryId !== undefined) updateData.categoryId = categoryId;
+    if (contact !== undefined) updateData.contact = contact;
+    if (images !== undefined) updateData.images = JSON.stringify(images);
+
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: updateData,
+      include: {
+        category: true,
+        seller: {
+          select: {
+            id: true,
+            nickname: true,
+            avatar: true
+          }
+        }
+      }
+    });
+
+    // 处理返回数据
+    const processedProduct = {
+      ...updatedProduct,
+      images: updatedProduct.images ? JSON.parse(updatedProduct.images) : [],
+      isFavorite: false
+    };
+
+    return res.json(success('商品更新成功', processedProduct));
+  } catch (err) {
+    console.error('更新商品失败:', err);
+    return res.status(500).json(error('更新失败'));
+  }
+});
+
+// 更新商品状态
+router.post('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json(badRequest('状态不能为空'));
+    }
+
+    const updateData: any = { status };
+    if (status === '已售出') {
+      updateData.soldAt = new Date();
+    }
+
+    const updatedProduct = await prisma.product.update({
+      where: { id, deleted: false },
+      data: updateData
+    });
+
+    return res.json(success('商品状态更新成功', {
+      id: updatedProduct.id,
+      status: updatedProduct.status,
+      soldAt: updatedProduct.soldAt
+    }));
+  } catch (err) {
+    console.error('更新商品状态失败:', err);
     return res.status(500).json(error('更新失败'));
   }
 });
 
 // 删除商品
-router.delete('/:id', async (req, res) => {
+router.post('/:id/delete', async (req, res) => {
   try {
     const { id } = req.params;
 
     // TODO: 验证用户权限（只能删除自己的商品）
-    // TODO: 实现软删除逻辑
+
+    await prisma.product.update({
+      where: { id, deleted: false },
+      data: { deleted: true }
+    });
 
     return res.json(success('商品删除成功'));
   } catch (err) {
+    console.error('删除商品失败:', err);
     return res.status(500).json(error('删除失败'));
   }
 });
@@ -175,54 +316,55 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/favorite', async (req, res) => {
   try {
     const { id } = req.params;
+    // TODO: 从JWT获取当前用户ID
+    const userId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo';
 
-    // TODO: 实现收藏逻辑
+    // 检查是否已收藏
+    const existingFavorite = await prisma.favorite.findUnique({
+      where: {
+        userId_productId: {
+          userId,
+          productId: id
+        }
+      }
+    });
+
+    if (existingFavorite) {
+      return res.status(400).json(badRequest('已收藏该商品'));
+    }
+
+    await prisma.favorite.create({
+      data: {
+        userId,
+        productId: id
+      }
+    });
+
     return res.json(success('收藏成功'));
   } catch (err) {
+    console.error('收藏失败:', err);
     return res.status(500).json(error('收藏失败'));
   }
 });
 
 // 取消收藏
-router.delete('/:id/favorite', async (req, res) => {
+router.post('/:id/unfavorite', async (req, res) => {
   try {
     const { id } = req.params;
+    // TODO: 从JWT获取当前用户ID
+    const userId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo';
 
-    // TODO: 实现取消收藏逻辑
+    await prisma.favorite.deleteMany({
+      where: {
+        userId,
+        productId: id
+      }
+    });
+
     return res.json(success('取消收藏成功'));
   } catch (err) {
+    console.error('操作失败:', err);
     return res.status(500).json(error('操作失败'));
-  }
-});
-
-// 添加评论
-router.post('/:id/comments', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { content } = req.body;
-
-    if (!content) {
-      return res.status(400).json(badRequest('评论内容不能为空'));
-    }
-
-    // TODO: 实现评论创建逻辑
-    const newComment = {
-      id: 'new-comment-id',
-      productId: id,
-      userId: 'current-user-id',
-      content,
-      createdAt: new Date().toISOString(),
-      user: {
-        id: 'current-user-id',
-        name: '张三',
-        nickname: '小张',
-        avatar: null
-      }
-    };
-
-    return res.status(201).json(success('评论添加成功', newComment));
-  } catch (err) {
-    return res.status(500).json(error('评论失败'));
   }
 });
 
@@ -230,50 +372,100 @@ router.post('/:id/comments', async (req, res) => {
 router.get('/:id/comments', async (req, res) => {
   try {
     const { id } = req.params;
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
 
-    // TODO: 查询商品评论
-    const mockComments = [
-      {
-        id: '1',
-        productId: id,
-        userId: 'user1',
-        content: '商品看起来不错，还能便宜点吗？',
-        createdAt: new Date().toISOString(),
-        user: {
-          id: 'user1',
-          name: '张三',
-          nickname: '小张',
-          avatar: null
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [comments, total] = await Promise.all([
+      prisma.comment.findMany({
+        where: { 
+          productId: id,
+          deleted: false 
+        },
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar: true
+            }
+          }
         }
-      }
-    ];
+      }),
+      prisma.comment.count({
+        where: { 
+          productId: id,
+          deleted: false 
+        }
+      })
+    ]);
+
+    const processedComments = comments.map(comment => ({
+      id: comment.id,
+      content: comment.content,
+      author: comment.user,
+      createdAt: comment.createdAt
+    }));
 
     return res.json(success('获取评论成功', {
-      comments: mockComments,
-      pagination: {
-        page: Number(page),
-        limit: Number(limit),
-        total: 1,
-        totalPages: 1
-      }
+      items: processedComments,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
     }));
   } catch (err) {
-    return res.status(500).json(error('获取失败'));
+    console.error('获取评论失败:', err);
+    return res.status(500).json(error('获取评论失败'));
   }
 });
 
-// 删除评论
-router.delete('/:id/comments/:commentId', async (req, res) => {
+// 添加评论
+router.post('/:id/comments/create', async (req, res) => {
   try {
-    const { id, commentId } = req.params;
+    const { id } = req.params;
+    const { content } = req.body;
 
-    // TODO: 验证用户权限（只能删除自己的评论或商品所有者可以删除）
-    // TODO: 实现评论删除逻辑
+    if (!content || content.trim() === '') {
+      return res.status(400).json(badRequest('评论内容不能为空'));
+    }
 
-    return res.json(success('评论删除成功'));
+    // TODO: 从JWT获取当前用户ID
+    const userId = req.user?.id || 'cm2m8k2hy0000k6og8h9rg4qo';
+
+    const newComment = await prisma.comment.create({
+      data: {
+        productId: id,
+        userId,
+        content: content.trim()
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickname: true,
+            avatar: true
+          }
+        }
+      }
+    });
+
+    const processedComment = {
+      id: newComment.id,
+      content: newComment.content,
+      author: newComment.user,
+      createdAt: newComment.createdAt
+    };
+
+    return res.status(201).json(success('评论发表成功', processedComment));
   } catch (err) {
-    return res.status(500).json(error('删除失败'));
+    console.error('添加评论失败:', err);
+    return res.status(500).json(error('评论失败'));
   }
 });
 
