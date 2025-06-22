@@ -237,4 +237,27 @@ router.post('/:userId/read', authenticateToken, async (req, res) => {
   }
 });
 
+// 获取未读消息数量
+router.get('/unread-count', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user!.id;
+
+    // 查询当前用户收到的未读消息数量
+    const unreadCount = await prisma.message.count({
+      where: { 
+        receiverId: currentUserId,
+        isRead: false,
+        deleted: false 
+      }
+    });
+
+    return res.json(success('获取未读消息数成功', {
+      count: unreadCount
+    }));
+  } catch (err) {
+    console.error('Get unread messages count error:', err);
+    return res.status(500).json(error('获取失败'));
+  }
+});
+
 export default router; 
