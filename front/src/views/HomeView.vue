@@ -194,11 +194,17 @@ async function loadProducts() {
     });
 
     const response = await getProducts(params);
-    const data = response.data;
-    
-    products.value = data.items || [];
-    total.value = data.total || 0;
-    totalPages.value = Math.ceil(total.value / pageSize);
+    if (response.data.status === 'success') {
+      const data = response.data.data;
+      products.value = data.items || [];
+      total.value = data.total || 0;
+      totalPages.value = data.totalPages || 1;
+    } else {
+      console.error('Failed to load products:', response.data.message);
+      products.value = [];
+      total.value = 0;
+      totalPages.value = 1;
+    }
   } catch (error) {
     console.error('Failed to load products:', error);
     products.value = [];

@@ -3,104 +3,389 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>权限调试页面</title>
+    <title>API 调试页面</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
-        .user-info { background: #f0f8ff; }
-        .permission-info { background: #f0fff0; }
-        .test-result { background: #fff8dc; }
-        .error { background: #ffe4e1; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1, h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #2980b9;
+        }
+        .test-button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            border-color: #28a745;
+            background-color: #d4edda;
+        }
+        .error {
+            border-color: #dc3545;
+            background-color: #f8d7da;
+        }
+        .status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .status.success {
+            color: #28a745;
+        }
+        .status.error {
+            color: #dc3545;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .loading {
+            color: #6c757d;
+            font-style: italic;
+        }
+        .test-group {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .test-group h3 {
+            margin-top: 0;
+            color: #495057;
+        }
     </style>
 </head>
 <body>
-    <h1>权限调试页面</h1>
-    
-    <div class="debug-section user-info">
-        <h2>用户信息</h2>
-        <p>当前用户角色：<span id="userRole">未登录</span></p>
-        <p>是否已登录：<span id="isLoggedIn">否</span></p>
-        <p>用户ID：<span id="userId">--</span></p>
-        <p>用户昵称：<span id="userNickname">--</span></p>
-    </div>
-    
-    <div class="debug-section permission-info">
-        <h2>权限检查</h2>
-        <p>是否为未认证用户：<span id="isUnverified">--</span></p>
-        <p>是否为管理员：<span id="isAdmin">--</span></p>
-        <p>是否为超级管理员：<span id="isSuperAdmin">--</span></p>
-    </div>
-    
-    <div class="debug-section test-result">
-        <h2>权限测试结果</h2>
-        <p>可以查看联系方式：<span id="canViewContact">--</span></p>
-        <p>可以发表评论：<span id="canComment">--</span></p>
-        <p>可以收藏商品：<span id="canFavorite">--</span></p>
-        <p>可以举报商品：<span id="canReport">--</span></p>
-    </div>
-    
-    <div class="debug-section">
-        <h2>快速登录测试</h2>
-        <button onclick="testLogin(1)">登录为认证用户</button>
-        <button onclick="testLogin(5)">登录为未认证用户</button>
-        <button onclick="testLogin(6)">登录为数码控</button>
-        <button onclick="testLogin(4)">登录为超级管理员</button>
-    </div>
-    
-    <script>
-        // 模拟权限检查函数
-        function updateDebugInfo() {
-            const userInfo = JSON.parse(localStorage.getItem('userInfo') || 'null');
-            const token = localStorage.getItem('token');
-            
-            document.getElementById('userRole').textContent = userInfo?.role || '未登录';
-            document.getElementById('isLoggedIn').textContent = !!token ? '是' : '否';
-            document.getElementById('userId').textContent = userInfo?.id || '--';
-            document.getElementById('userNickname').textContent = userInfo?.nickname || '--';
-            
-            const isUnverified = userInfo?.role === '未认证用户';
-            const isAdmin = userInfo?.role === '管理员';
-            const isSuperAdmin = userInfo?.role === '超级管理员';
-            
-            document.getElementById('isUnverified').textContent = isUnverified ? '是' : '否';
-            document.getElementById('isAdmin').textContent = isAdmin ? '是' : '否';
-            document.getElementById('isSuperAdmin').textContent = isSuperAdmin ? '是' : '否';
-            
-            // 权限测试
-            const canViewContact = !!token && !isUnverified;
-            const canComment = !!token && !isUnverified;
-            const canFavorite = !!token && !isUnverified;
-            const canReport = !!token && !isUnverified;
-            
-            document.getElementById('canViewContact').textContent = canViewContact ? '是' : '否';
-            document.getElementById('canComment').textContent = canComment ? '是' : '否';
-            document.getElementById('canFavorite').textContent = canFavorite ? '是' : '否';
-            document.getElementById('canReport').textContent = canReport ? '是' : '否';
-        }
+    <div class="container">
+        <h1>🔧 API 调试测试页面</h1>
+        <p>测试后端API接口的连通性和数据返回情况</p>
         
-        // 模拟快速登录
-        function testLogin(userId) {
-            const mockUsers = {
-                1: { id: 1, nickname: '技术宅', role: '认证用户' },
-                4: { id: 4, nickname: '超级管理员', role: '超级管理员' },
-                5: { id: 5, nickname: '待激活用户', role: '未认证用户' },
-                6: { id: 6, nickname: '数码控', role: '未认证用户' }
-            };
+        <div class="test-group">
+            <h3>🏥 基础服务测试</h3>
+            <button class="test-button" onclick="testHealth()">健康检查</button>
+            <button class="test-button" onclick="testRoot()">根路径</button>
+            <div id="basic-result"></div>
+        </div>
+
+        <div class="test-group">
+            <h3>📦 商品API测试</h3>
+            <button class="test-button" onclick="testProducts()">获取商品列表</button>
+            <button class="test-button" onclick="testProductDetail()">获取商品详情</button>
+            <button class="test-button" onclick="testCreateProduct()">创建商品</button>
+            <div id="products-result"></div>
+        </div>
+
+        <div class="test-group">
+            <h3>📂 分类API测试</h3>
+            <button class="test-button" onclick="testCategories()">获取分类列表</button>
+            <button class="test-button" onclick="testCategoryDetail()">获取分类详情</button>
+            <div id="categories-result"></div>
+        </div>
+
+        <div class="test-group">
+            <h3>🔐 认证API测试</h3>
+            <button class="test-button" onclick="testLogin()">用户登录</button>
+            <button class="test-button" onclick="testUserProfile()">获取用户信息</button>
+            <div id="auth-result"></div>
+        </div>
+
+        <div class="test-group">
+            <h3>📊 综合测试</h3>
+            <button class="test-button" onclick="runAllTests()" style="background: #e74c3c;">运行全部测试</button>
+            <div id="all-result"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        function showResult(containerId, status, title, data, error = null) {
+            const container = document.getElementById(containerId);
+            const timestamp = new Date().toLocaleTimeString();
             
-            const user = mockUsers[userId];
-            if (user) {
-                localStorage.setItem('token', `mock_token_${userId}`);
-                localStorage.setItem('userInfo', JSON.stringify(user));
-                updateDebugInfo();
-                console.log('登录成功:', user);
+            let content = `
+                <div class="result ${status}">
+                    <div class="status ${status}">
+                        ${status === 'success' ? '✅' : '❌'} ${title} [${timestamp}]
+                    </div>
+            `;
+            
+            if (error) {
+                content += `<div><strong>错误:</strong> ${error}</div>`;
+            }
+            
+            if (data) {
+                content += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            content += '</div>';
+            container.innerHTML = content;
+        }
+
+        function showLoading(containerId, message) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="loading">⏳ ${message}...</div>`;
+        }
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const defaultOptions = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+
+                if (authToken) {
+                    defaultOptions.headers.Authorization = `Bearer ${authToken}`;
+                }
+
+                const response = await fetch(url, { ...defaultOptions, ...options });
+                const data = await response.json();
+                
+                return {
+                    success: response.ok,
+                    status: response.status,
+                    data: data
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    error: error.message
+                };
             }
         }
-        
-        // 页面加载时更新信息
-        updateDebugInfo();
-        
-        // 每秒更新一次（监听localStorage变化）
-        setInterval(updateDebugInfo, 1000);
+
+        // 基础服务测试
+        async function testHealth() {
+            showLoading('basic-result', '测试健康检查');
+            const result = await makeRequest('http://localhost:3000/health');
+            
+            if (result.success) {
+                showResult('basic-result', 'success', '健康检查成功', result.data);
+            } else {
+                showResult('basic-result', 'error', '健康检查失败', result.data, result.error);
+            }
+        }
+
+        async function testRoot() {
+            showLoading('basic-result', '测试根路径');
+            const result = await makeRequest('http://localhost:3000/');
+            
+            if (result.success) {
+                showResult('basic-result', 'success', '根路径访问成功', result.data);
+            } else {
+                showResult('basic-result', 'error', '根路径访问失败', result.data, result.error);
+            }
+        }
+
+        // 商品API测试
+        async function testProducts() {
+            showLoading('products-result', '获取商品列表');
+            const result = await makeRequest('http://localhost:3000/api/products');
+            
+            if (result.success) {
+                const message = `获取商品列表成功 (共 ${result.data.data?.total || 0} 个商品)`;
+                showResult('products-result', 'success', message, result.data);
+            } else {
+                showResult('products-result', 'error', '获取商品列表失败', result.data, result.error);
+            }
+        }
+
+        async function testProductDetail() {
+            showLoading('products-result', '获取商品详情');
+            // 先获取商品列表，然后取第一个商品的详情
+            const listResult = await makeRequest('http://localhost:3000/api/products');
+            
+            if (listResult.success && listResult.data.data?.items?.length > 0) {
+                const firstProductId = listResult.data.data.items[0].id;
+                const result = await makeRequest(`http://localhost:3000/api/products/${firstProductId}`);
+                
+                if (result.success) {
+                    showResult('products-result', 'success', '获取商品详情成功', result.data);
+                } else {
+                    showResult('products-result', 'error', '获取商品详情失败', result.data, result.error);
+                }
+            } else {
+                showResult('products-result', 'error', '无法获取商品详情', null, '没有可用的商品');
+            }
+        }
+
+        async function testCreateProduct() {
+            showLoading('products-result', '创建新商品');
+            
+            const productData = {
+                name: `测试商品 ${Date.now()}`,
+                description: '这是一个API调试创建的测试商品',
+                price: 99.99,
+                categoryId: '',
+                contact: 'test@example.com',
+                images: []
+            };
+
+            // 先获取分类列表
+            const categoriesResult = await makeRequest('http://localhost:3000/api/categories');
+            if (categoriesResult.success && categoriesResult.data.data?.length > 0) {
+                productData.categoryId = categoriesResult.data.data[0].id;
+            }
+
+            const result = await makeRequest('http://localhost:3000/api/products/create', {
+                method: 'POST',
+                body: JSON.stringify(productData)
+            });
+            
+            if (result.success) {
+                showResult('products-result', 'success', '创建商品成功', result.data);
+            } else {
+                showResult('products-result', 'error', '创建商品失败', result.data, result.error);
+            }
+        }
+
+        // 分类API测试
+        async function testCategories() {
+            showLoading('categories-result', '获取分类列表');
+            const result = await makeRequest('http://localhost:3000/api/categories');
+            
+            if (result.success) {
+                const message = `获取分类列表成功 (共 ${result.data.data?.length || 0} 个分类)`;
+                showResult('categories-result', 'success', message, result.data);
+            } else {
+                showResult('categories-result', 'error', '获取分类列表失败', result.data, result.error);
+            }
+        }
+
+        async function testCategoryDetail() {
+            showLoading('categories-result', '获取分类详情');
+            // 先获取分类列表，然后取第一个分类的详情
+            const listResult = await makeRequest('http://localhost:3000/api/categories');
+            
+            if (listResult.success && listResult.data.data?.length > 0) {
+                const firstCategoryId = listResult.data.data[0].id;
+                const result = await makeRequest(`http://localhost:3000/api/categories/${firstCategoryId}`);
+                
+                if (result.success) {
+                    showResult('categories-result', 'success', '获取分类详情成功', result.data);
+                } else {
+                    showResult('categories-result', 'error', '获取分类详情失败', result.data, result.error);
+                }
+            } else {
+                showResult('categories-result', 'error', '无法获取分类详情', null, '没有可用的分类');
+            }
+        }
+
+        // 认证API测试
+        async function testLogin() {
+            showLoading('auth-result', '用户登录');
+            
+            const loginData = {
+                studentId: '20210001',
+                password: 'password123'
+            };
+
+            const result = await makeRequest('http://localhost:3000/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify(loginData)
+            });
+            
+            if (result.success && result.data.data?.token) {
+                authToken = result.data.data.token;
+                showResult('auth-result', 'success', '用户登录成功', result.data);
+            } else {
+                showResult('auth-result', 'error', '用户登录失败', result.data, result.error);
+            }
+        }
+
+        async function testUserProfile() {
+            if (!authToken) {
+                showResult('auth-result', 'error', '获取用户信息失败', null, '请先登录');
+                return;
+            }
+
+            showLoading('auth-result', '获取用户信息');
+            const result = await makeRequest('http://localhost:3000/api/users/me');
+            
+            if (result.success) {
+                showResult('auth-result', 'success', '获取用户信息成功', result.data);
+            } else {
+                showResult('auth-result', 'error', '获取用户信息失败', result.data, result.error);
+            }
+        }
+
+        // 运行全部测试
+        async function runAllTests() {
+            showLoading('all-result', '运行全部测试');
+            
+            const tests = [
+                { name: '健康检查', func: testHealth },
+                { name: '获取商品列表', func: testProducts },
+                { name: '获取分类列表', func: testCategories },
+                { name: '用户登录', func: testLogin }
+            ];
+
+            let results = [];
+            
+            for (const test of tests) {
+                try {
+                    await test.func();
+                    results.push(`✅ ${test.name}: 成功`);
+                } catch (error) {
+                    results.push(`❌ ${test.name}: 失败 - ${error.message}`);
+                }
+                // 等待一下再运行下一个测试
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            const summary = {
+                timestamp: new Date().toISOString(),
+                total: tests.length,
+                results: results
+            };
+
+            showResult('all-result', 'success', '全部测试完成', summary);
+        }
+
+        // 页面加载时自动运行基础测试
+        window.addEventListener('load', () => {
+            console.log('🚀 API调试页面已加载');
+            testHealth();
+        });
     </script>
 </body>
 </html> 
