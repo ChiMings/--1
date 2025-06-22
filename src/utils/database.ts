@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
+  log: process.env.NODE_ENV === 'production' ? ['error'] : ['warn', 'error'],
 });
 
 if (process.env.NODE_ENV !== 'production') {
@@ -27,5 +27,9 @@ export async function testDatabaseConnection() {
 
 // 优雅关闭数据库连接
 export async function closeDatabaseConnection() {
-  await prisma.$disconnect();
+  try {
+    await prisma.$disconnect();
+  } catch (error) {
+    console.error('数据库断开连接失败:', error);
+  }
 } 
