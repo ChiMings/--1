@@ -291,7 +291,14 @@ async function loadProduct() {
     loading.value = true;
     const productId = route.params.id;
     const response = await getProductDetail(productId);
-    product.value = response.data;
+    
+    // 处理后端返回的数据结构
+    if (response.data.status === 'success') {
+      product.value = response.data.data;
+    } else {
+      console.error('Failed to load product:', response.data.message);
+      product.value = null;
+    }
     
     // 加载评论（模拟数据）
     if (config.useMockData) {
