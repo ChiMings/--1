@@ -379,8 +379,9 @@ export function getUserProfile(userId) {
           const products = getProductsByUserId(parseInt(userId));
           resolve({ 
             data: {
-              user,
-              products
+              status: 'success',
+              message: '获取用户信息成功',
+              data: user  // 统一数据结构，返回用户信息在data字段中
             }
           });
         } else {

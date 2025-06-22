@@ -355,7 +355,27 @@ async function batchUnfavorite() {
 
 // 联系卖家
 function contactSeller(product) {
-  alert(`联系卖家：${product.contact}`);
+  if (!userStore.isLoggedIn) {
+    alert('请先登录后再联系卖家');
+    router.push('/login');
+    return;
+  }
+  
+  if (!product.seller) {
+    alert('卖家信息不完整');
+    return;
+  }
+  
+  // 跳转到私信页面，并自动开启与卖家的对话
+  router.push({
+    name: 'MyMessages',
+    query: {
+      userId: product.seller.id,
+      nickname: product.seller.nickname,
+      productId: product.id,
+      productName: product.name
+    }
+  });
 }
 
 // 跳转到商品详情

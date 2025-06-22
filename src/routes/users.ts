@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { success, error, notFound } from '../utils/response';
 import { authenticateToken } from '../middleware/auth';
 import { prisma } from '../utils/database';
@@ -333,25 +334,47 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // TODO: 根据ID查询用户
-    const mockUser = {
-      id,
-      studentId: '20240001',
-      name: '张三',
-      nickname: '小张',
-      role: '认证用户',
-      avatar: null,
-      createdAt: new Date().toISOString()
+    // 查询用户信息
+    const user = await prisma.user.findUnique({
+      where: { id, deleted: false },
+      select: {
+        id: true,
+        studentId: true,
+        name: true,
+        nickname: true,
+        role: true,
+        avatar: true,
+        contact: true, // 包含联系方式
+        status: true,
+        createdAt: true
+      }
+    });
+
+    if (!user || user.status !== '正常') {
+      return res.status(404).json(error('用户不存在或已被禁用'));
+    }
+
+    // 处理返回数据
+    const userInfo = {
+      id: user.id,
+      studentId: user.studentId,
+      name: user.name,
+      nickname: user.nickname,
+      role: user.role,
+      avatar: user.avatar,
+      contact: user.contact,
+      createdAt: user.createdAt.toISOString()
     };
 
-    return res.json(success('获取用户信息成功', mockUser));
+    return res.json(success('获取用户信息成功', userInfo));
   } catch (err) {
+    console.error('获取用户信息失败:', err);
     return res.status(500).json(error('获取失败'));
   }
 });
 
-// 获取指定用户的商品（需要认证）
-router.get('/:id/products', authenticateToken, async (req, res) => {
+// 获取指定用户的商品（公开访问）
+router.get('/:id/products', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
@@ -372,8 +395,29 @@ router.get('/:id/products', authenticateToken, async (req, res) => {
       deleted: false,
     };
 
-    if (status) {
-      where.status = status;
+    // 权限控制：只有用户自己或管理员可以看到所有状态的商品，其他人只能看在售商品
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    let currentUserId = null;
+    let currentUserRole = null;
+    
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        currentUserId = decoded.id;
+        currentUserRole = decoded.role;
+      } catch (err) {
+        // Token无效，按访客处理
+      }
+    }
+    
+    // 如果不是商品主人且不是管理员，只显示在售商品
+    const isOwner = currentUserId === id;
+    const isAdmin = currentUserRole === '管理员' || currentUserRole === '超级管理员';
+    
+    if (!isOwner && !isAdmin) {
+      where.status = '在售'; // 访客只能看在售商品
+    } else if (status) {
+      where.status = status; // 主人和管理员可以按状态筛选
     }
 
     // 构建排序条件
