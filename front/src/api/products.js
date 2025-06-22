@@ -63,7 +63,14 @@ export function getProductDetail(productId) {
       setTimeout(() => {
         const product = mockProducts.find(p => p.id === parseInt(productId));
         if (product) {
-          resolve({ data: product });
+          // 保持与真实API相同的响应结构
+          resolve({ 
+            data: { 
+              status: 'success', 
+              message: '获取商品详情成功', 
+              data: product 
+            } 
+          });
         } else {
           reject(new Error('商品不存在'));
         }

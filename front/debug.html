@@ -91,12 +91,28 @@
             margin-top: 0;
             color: #495057;
         }
+        .debug-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .debug-info h4 {
+            margin-top: 0;
+            color: #856404;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔧 API 调试测试页面</h1>
         <p>测试后端API接口的连通性和数据返回情况</p>
+        
+        <div class="debug-info">
+            <h4>🐛 商品详情问题调试</h4>
+            <p>用户反映点击商品后显示的详情不是该商品的，这里专门测试商品详情API</p>
+        </div>
         
         <div class="test-group">
             <h3>🏥 基础服务测试</h3>
@@ -109,6 +125,7 @@
             <h3>📦 商品API测试</h3>
             <button class="test-button" onclick="testProducts()">获取商品列表</button>
             <button class="test-button" onclick="testProductDetail()">获取商品详情</button>
+            <button class="test-button" onclick="testSpecificProductDetail()">测试特定商品详情</button>
             <button class="test-button" onclick="testCreateProduct()">创建商品</button>
             <div id="products-result"></div>
         </div>
@@ -136,6 +153,7 @@
 
     <script>
         let authToken = null;
+        let currentProductIds = [];
 
         function showResult(containerId, status, title, data, error = null) {
             const container = document.getElementById(containerId);
@@ -222,6 +240,10 @@
             const result = await makeRequest('http://localhost:3000/api/products');
             
             if (result.success) {
+                // 保存商品IDs用于后续测试
+                if (result.data.data && result.data.data.items) {
+                    currentProductIds = result.data.data.items.map(item => item.id);
+                }
                 const message = `获取商品列表成功 (共 ${result.data.data?.total || 0} 个商品)`;
                 showResult('products-result', 'success', message, result.data);
             } else {
@@ -231,21 +253,70 @@
 
         async function testProductDetail() {
             showLoading('products-result', '获取商品详情');
-            // 先获取商品列表，然后取第一个商品的详情
-            const listResult = await makeRequest('http://localhost:3000/api/products');
             
-            if (listResult.success && listResult.data.data?.items?.length > 0) {
-                const firstProductId = listResult.data.data.items[0].id;
+            // 如果没有商品ID，先获取商品列表
+            if (currentProductIds.length === 0) {
+                const listResult = await makeRequest('http://localhost:3000/api/products');
+                if (listResult.success && listResult.data.data?.items?.length > 0) {
+                    currentProductIds = listResult.data.data.items.map(item => item.id);
+                }
+            }
+            
+            if (currentProductIds.length > 0) {
+                const firstProductId = currentProductIds[0];
                 const result = await makeRequest(`http://localhost:3000/api/products/${firstProductId}`);
                 
                 if (result.success) {
-                    showResult('products-result', 'success', '获取商品详情成功', result.data);
+                    const title = `获取商品详情成功 (ID: ${firstProductId})`;
+                    showResult('products-result', 'success', title, result.data);
                 } else {
                     showResult('products-result', 'error', '获取商品详情失败', result.data, result.error);
                 }
             } else {
                 showResult('products-result', 'error', '无法获取商品详情', null, '没有可用的商品');
             }
+        }
+
+        async function testSpecificProductDetail() {
+            showLoading('products-result', '测试特定商品详情');
+            
+            if (currentProductIds.length === 0) {
+                showResult('products-result', 'error', '请先获取商品列表', null, '没有商品ID可用');
+                return;
+            }
+
+            let content = `<div class="result success">
+                <div class="status success">📋 商品详情对比测试</div>
+                <div style="margin: 10px 0;"><strong>发现的问题:</strong></div>
+            `;
+
+            // 测试多个商品详情
+            for (let i = 0; i < Math.min(3, currentProductIds.length); i++) {
+                const productId = currentProductIds[i];
+                const result = await makeRequest(`http://localhost:3000/api/products/${productId}`);
+                
+                if (result.success) {
+                    const productData = result.data.data;
+                    content += `
+                        <div style="margin: 15px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                            <strong>请求ID: ${productId}</strong><br>
+                            <strong>返回的商品名称:</strong> ${productData?.name || 'N/A'}<br>
+                            <strong>返回的商品ID:</strong> ${productData?.id || 'N/A'}<br>
+                            <strong>ID是否匹配:</strong> ${productId === productData?.id ? '✅ 匹配' : '❌ 不匹配'}
+                        </div>
+                    `;
+                } else {
+                    content += `
+                        <div style="margin: 15px 0; padding: 10px; border: 1px solid #dc3545; border-radius: 4px; background: #f8d7da;">
+                            <strong>请求ID: ${productId}</strong><br>
+                            <strong>错误:</strong> ${result.error || result.data?.message}
+                        </div>
+                    `;
+                }
+            }
+
+            content += '</div>';
+            document.getElementById('products-result').innerHTML = content;
         }
 
         async function testCreateProduct() {
@@ -356,6 +427,7 @@
                 { name: '健康检查', func: testHealth },
                 { name: '获取商品列表', func: testProducts },
                 { name: '获取分类列表', func: testCategories },
+                { name: '商品详情对比', func: testSpecificProductDetail },
                 { name: '用户登录', func: testLogin }
             ];
 
