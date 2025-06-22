@@ -405,7 +405,8 @@ router.get('/:id/products', async (req, res) => {
     
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-here';
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
         currentUserId = decoded.id;
         currentUserRole = decoded.role;
       } catch (err) {

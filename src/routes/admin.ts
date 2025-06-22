@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
-import { sendReportProcessedNotification, sendTradeNotification, sendRoleChangeNotification, sendAccountStatusNotification, NotificationType } from '../utils/notificationService';
+import { sendTradeNotification, sendRoleChangeNotification, sendAccountStatusNotification, NotificationType, sendSystemAnnouncementNotification } from '../utils/notificationService';
 
 const router = Router();
 
@@ -546,12 +546,10 @@ router.get('/reports', requireAdmin, async (req, res) => {
   }
 });
 
-
-
 // 创建公告
 router.post('/notices/create', requireAdmin, async (req, res) => {
   try {
-    const { title, content, type = '系统公告', isActive = true } = req.body;
+    const { title, content, type = '系统公告', isActive = true, sendNotification = false } = req.body;
 
     if (!title || !content) {
       return res.status(400).json(badRequest('标题和内容不能为空'));
@@ -566,6 +564,14 @@ router.post('/notices/create', requireAdmin, async (req, res) => {
         isActive
       }
     });
+
+    // 如果选择发送通知，则给所有用户发送系统通知
+    if (sendNotification && isActive) {
+      await sendSystemAnnouncementNotification(
+        title.trim(),
+        content.trim()
+      );
+    }
 
     return res.status(201).json(success('公告创建成功', {
       id: notice.id,
@@ -784,8 +790,6 @@ router.post('/categories/:categoryId/delete', requireAdmin, async (req, res) => 
   }
 });
 
-
-
 // 处理举报
 router.post('/reports/:reportId/process', requireAdmin, async (req, res) => {
   try {
@@ -841,31 +845,21 @@ router.post('/reports/:reportId/process', requireAdmin, async (req, res) => {
       }
     });
 
-    // 发送通知给举报人
-    if (report.product) {
-      await sendReportProcessedNotification(
-        report.reporter.id,
+    // 如果举报被认定为有效且商品还在售，则下架商品
+    if (report.product && action === 'approved' && report.product.status === '在售') {
+      // 下架商品
+      await prisma.product.update({
+        where: { id: report.product.id },
+        data: { status: '已下架' }
+      });
+
+      // 通知卖家商品被下架
+      await sendTradeNotification(
+        report.product.sellerId,
+        NotificationType.PRODUCT_REMOVED,
         report.product.name,
-        action,
-        adminNote
+        `因举报核实违规，商品已被下架。${adminNote ? `管理员备注：${adminNote}` : ''}`
       );
-
-      // 如果举报被认定为有效且商品还在售，则下架商品并通知卖家
-      if (action === 'approved' && report.product.status === '在售') {
-        // 下架商品
-        await prisma.product.update({
-          where: { id: report.product.id },
-          data: { status: '已下架' }
-        });
-
-        // 通知卖家商品被下架
-        await sendTradeNotification(
-          report.product.sellerId,
-          NotificationType.PRODUCT_REMOVED,
-          report.product.name,
-          `因举报核实违规，商品已被下架。${adminNote ? `管理员备注：${adminNote}` : ''}`
-        );
-      }
     }
 
     const actionText = action === 'approved' ? '通过' : '驳回';
