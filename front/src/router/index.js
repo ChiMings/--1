@@ -176,7 +176,13 @@ router.beforeEach((to, from, next) => {
   }
   
   // 如果已经登录，访问登录页面则重定向到首页
+  // 除非是未认证用户要进行激活
   if (to.name === 'Login' && userStore.isLoggedIn) {
+    // 允许未认证用户访问激活页面
+    if (userStore.userInfo?.role === '未认证用户' && to.query.tab === 'activate') {
+      next();
+      return;
+    }
     next('/');
     return;
   }
