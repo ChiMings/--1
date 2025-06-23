@@ -8,7 +8,7 @@
     <!-- 统计信息 -->
     <div class="stats-overview">
       <div class="stat-card">
-        <div class="stat-icon">👥</div>
+        <div class="stat-icon"><i class="fas fa-users"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ userStats.total }}</div>
           <div class="stat-label">总用户数</div>
@@ -16,7 +16,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">✅</div>
+        <div class="stat-icon"><i class="fas fa-user-check"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ userStats.verified }}</div>
           <div class="stat-label">认证用户</div>
@@ -24,7 +24,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">⏳</div>
+        <div class="stat-icon"><i class="fas fa-user-clock"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ userStats.unverified }}</div>
           <div class="stat-label">未认证用户</div>
@@ -32,7 +32,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">🛠️</div>
+        <div class="stat-icon"><i class="fas fa-user-shield"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ userStats.admins }}</div>
           <div class="stat-label">管理员</div>
@@ -69,7 +69,7 @@
         </select>
         
         <button @click="refreshUsers" class="btn btn-outline">
-          🔄 刷新
+          <i class="fas fa-sync-alt"></i> 刷新
         </button>
       </div>
     </div>
@@ -81,7 +81,7 @@
       </div>
 
       <div v-else-if="filteredUsers.length === 0" class="empty-users">
-        <div class="empty-icon">👤</div>
+        <div class="empty-icon"><i class="fas fa-user-slash"></i></div>
         <h3>未找到用户</h3>
         <p>尝试调整搜索条件或筛选器</p>
       </div>
@@ -135,7 +135,7 @@
                     class="btn btn-sm btn-outline"
                     title="查看详情"
                   >
-                    👁️
+                    <i class="fas fa-eye"></i>
                   </button>
                   
                   <button 
@@ -144,7 +144,7 @@
                     class="btn btn-sm btn-primary"
                     title="修改角色"
                   >
-                    🛠️
+                    <i class="fas fa-user-edit"></i>
                   </button>
                   
                   <button 
@@ -153,7 +153,7 @@
                     class="btn btn-sm btn-success"
                     title="发送私信"
                   >
-                    💬
+                    <i class="fas fa-comment-dots"></i>
                   </button>
                   
                   <button 
@@ -162,7 +162,7 @@
                     :class="['btn', 'btn-sm', user.status === '正常' ? 'btn-warning' : 'btn-success']"
                     :title="user.status === '正常' ? '禁用用户' : '启用用户'"
                   >
-                    {{ user.status === '正常' ? '🚫' : '✅' }}
+                    <i :class="user.status === '正常' ? 'fas fa-ban' : 'fas fa-check-circle'"></i>
                   </button>
                   
                   <button 
@@ -171,7 +171,7 @@
                     class="btn btn-sm btn-warning"
                     title="重置密码"
                   >
-                    🔑
+                    <i class="fas fa-key"></i>
                   </button>
                 </div>
               </td>

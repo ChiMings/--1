@@ -2,14 +2,14 @@
   <div class="category-management">
     <!-- 页面头部 -->
     <div class="page-header">
-      <h1>🗂️ 分类管理</h1>
+      <h1><i class="fas fa-sitemap"></i> 分类管理</h1>
       <p>管理商品分类，组织平台商品结构</p>
     </div>
 
     <!-- 操作栏 -->
     <div class="action-bar">
       <button @click="showCreateCategory" class="btn btn-primary">
-        ➕ 添加分类
+        <i class="fas fa-plus"></i> 添加分类
       </button>
       <div class="search-box">
         <input 
@@ -18,35 +18,35 @@
           placeholder="搜索分类名称..."
           class="search-input"
         />
-        <span class="search-icon">🔍</span>
+        <span class="search-icon"><i class="fas fa-search"></i></span>
       </div>
     </div>
 
     <!-- 分类统计 -->
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon">📁</div>
+        <div class="stat-icon"><i class="fas fa-folder-open"></i></div>
         <div class="stat-info">
           <div class="stat-number">{{ categories.length }}</div>
           <div class="stat-label">总分类数</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">🔥</div>
+        <div class="stat-icon"><i class="fas fa-toggle-on"></i></div>
         <div class="stat-info">
           <div class="stat-number">{{ activeCategories.length }}</div>
           <div class="stat-label">启用分类</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">📦</div>
+        <div class="stat-icon"><i class="fas fa-box-open"></i></div>
         <div class="stat-info">
           <div class="stat-number">{{ totalProducts }}</div>
           <div class="stat-label">商品总数</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon">📈</div>
+        <div class="stat-icon"><i class="fas fa-fire"></i></div>
         <div class="stat-info">
           <div class="stat-number">{{ mostPopularCategory?.name || '暂无' }}</div>
           <div class="stat-label">热门分类</div>
@@ -57,11 +57,11 @@
     <!-- 分类列表 -->
     <div class="categories-container">
       <div v-if="loading" class="loading">
-        <p>📂 加载分类中...</p>
+        <p><i class="fas fa-spinner fa-spin"></i> 加载分类中...</p>
       </div>
 
       <div v-else-if="filteredCategories.length === 0" class="empty-state">
-        <div class="empty-icon">📭</div>
+        <div class="empty-icon"><i class="fas fa-folder-minus"></i></div>
         <h3>{{ searchQuery ? '未找到匹配的分类' : '暂无分类' }}</h3>
         <p>{{ searchQuery ? '尝试调整搜索条件' : '点击"添加分类"创建第一个分类' }}</p>
       </div>
@@ -73,14 +73,14 @@
           :class="['category-card', { 'category-disabled': !category.isActive }]"
         >
           <div class="category-header">
-            <div class="category-icon">{{ category.icon }}</div>
+            <div class="category-icon"><i :class="category.icon || 'fas fa-folder'"></i></div>
             <div class="category-info">
               <h3 class="category-name">{{ category.name }}</h3>
               <p class="category-desc">{{ category.description }}</p>
             </div>
             <div class="category-status">
               <span v-if="category.isDefault" class="status-badge status-default">
-                🏠 默认分类
+                <i class="fas fa-home"></i> 默认分类
               </span>
               <span :class="['status-badge', category.isActive ? 'status-active' : 'status-inactive']">
                 {{ category.isActive ? '启用' : '禁用' }}
@@ -105,13 +105,14 @@
 
           <div class="category-actions">
             <button @click="editCategory(category)" class="btn btn-sm btn-primary">
-              ✏️ 编辑
+              <i class="fas fa-edit"></i> 编辑
             </button>
             <button 
               @click="toggleCategoryStatus(category)" 
               :class="['btn', 'btn-sm', category.isActive ? 'btn-warning' : 'btn-success']"
             >
-              {{ category.isActive ? '🚫 禁用' : '✅ 启用' }}
+              <i :class="category.isActive ? 'fas fa-toggle-off' : 'fas fa-toggle-on'"></i>
+              {{ category.isActive ? '禁用' : '启用' }}
             </button>
             <button 
               @click="deleteCategoryHandler(category)" 
@@ -119,7 +120,7 @@
               :disabled="category.isDefault"
               :title="category.isDefault ? '默认分类不能删除' : (category.productCount > 0 ? '删除后商品将移动到默认分类' : '删除分类')"
             >
-              🗑️ 删除
+              <i class="fas fa-trash-alt"></i> 删除
             </button>
           </div>
         </div>
@@ -130,8 +131,8 @@
     <div v-if="showCategoryDialog" class="modal-overlay" @click="closeCategoryDialog">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ isEditing ? '编辑分类' : '添加分类' }}</h3>
-          <button @click="closeCategoryDialog" class="close-btn">&times;</button>
+          <h3>{{ isEditing ? '编辑分类' : '添加新分类' }}</h3>
+          <button @click="closeCategoryDialog" class="close-btn"><i class="fas fa-times"></i></button>
         </div>
         
         <div class="modal-body">
@@ -141,7 +142,7 @@
               <input 
                 v-model="categoryForm.name" 
                 type="text" 
-                placeholder="请输入分类名称"
+                placeholder="例如：电子产品、书籍教材"
                 required
               />
             </div>
@@ -154,11 +155,12 @@
                   :key="icon"
                   :class="['icon-option', { 'icon-selected': categoryForm.icon === icon }]"
                   @click="categoryForm.icon = icon"
+                  :title="icon"
                 >
-                  {{ icon }}
+                  <i :class="icon"></i>
                 </div>
               </div>
-              <small class="form-hint">选择一个代表性图标</small>
+              <small class="form-hint">选择一个能代表该分类的图标</small>
             </div>
             
             <div class="form-group">
@@ -166,7 +168,7 @@
               <textarea 
                 v-model="categoryForm.description" 
                 rows="3"
-                placeholder="请输入分类描述（可选）"
+                placeholder="简单描述这个分类下包含哪些商品（可选）"
               ></textarea>
             </div>
 
@@ -231,7 +233,7 @@ const editingCategory = ref(null);
 // 表单数据
 const categoryForm = reactive({
   name: '',
-  icon: '📁',
+  icon: 'fas fa-folder',
   description: '',
   sortOrder: 0,
   isActive: true
@@ -239,9 +241,11 @@ const categoryForm = reactive({
 
 // 图标选项
 const iconOptions = [
-  '📱', '💻', '📚', '👕', '👟', '🎮', '🏀', '🎵', 
-  '🎨', '🔧', '⚽', '🏠', '🚗', '🍔', '📷', '💄',
-  '🎸', '🕶️', '⌚', '🧸', '🎂', '🌱', '✏️', '📁'
+  'fas fa-mobile-alt', 'fas fa-laptop', 'fas fa-book', 'fas fa-tshirt', 'fas fa-shoe-prints', 
+  'fas fa-gamepad', 'fas fa-basketball-ball', 'fas fa-music', 'fas fa-palette', 'fas fa-tools', 
+  'fas fa-futbol', 'fas fa-home', 'fas fa-car', 'fas fa-hamburger', 'fas fa-camera', 
+  'fas fa-paint-brush', 'fas fa-guitar', 'fas fa-glasses', 'fas fa-clock', 'fas fa-shapes', 
+  'fas fa-birthday-cake', 'fas fa-seedling', 'fas fa-pen', 'fas fa-folder-plus'
 ];
 
 // 计算属性
@@ -313,7 +317,7 @@ function closeCategoryDialog() {
 
 function resetForm() {
   categoryForm.name = '';
-  categoryForm.icon = '📁';
+  categoryForm.icon = 'fas fa-folder';
   categoryForm.description = '';
   categoryForm.sortOrder = 0;
   categoryForm.isActive = true;

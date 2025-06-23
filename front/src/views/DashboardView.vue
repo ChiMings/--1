@@ -8,7 +8,7 @@
     <!-- 概览统计卡片 -->
     <div class="stats-overview">
       <div class="stat-card">
-        <div class="stat-icon users">👥</div>
+        <div class="stat-icon users"><i class="fas fa-users"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.totalUsers }}</div>
           <div class="stat-label">总用户数</div>
@@ -19,7 +19,7 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon products">📦</div>
+        <div class="stat-icon products"><i class="fas fa-box-open"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.totalProducts }}</div>
           <div class="stat-label">商品总数</div>
@@ -30,7 +30,7 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon transactions">💰</div>
+        <div class="stat-icon transactions"><i class="fas fa-hand-holding-usd"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.totalTransactions }}</div>
           <div class="stat-label">交易总数</div>
@@ -41,7 +41,7 @@
       </div>
 
       <div class="stat-card">
-        <div class="stat-icon active">⚡</div>
+        <div class="stat-icon active"><i class="fas fa-bolt"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ stats.activeUsers }}</div>
           <div class="stat-label">活跃用户</div>
@@ -61,7 +61,6 @@
             <select v-model="selectedPeriod" @change="loadChartData">
               <option value="week">最近一周</option>
               <option value="month">最近一月</option>
-              <option value="quarter">最近三月</option>
             </select>
           </div>
         </div>
@@ -128,8 +127,7 @@
           :key="activity.id"
           class="activity-item"
         >
-          <div class="activity-icon">
-            {{ getActivityIcon(activity.type) }}
+          <div class="activity-icon" v-html="getActivityIcon(activity.type)">
           </div>
           <div class="activity-content">
             <div class="activity-text">{{ activity.description }}</div>
@@ -149,7 +147,7 @@
       <h3>待处理事项</h3>
       <div class="tasks-grid">
         <div class="task-card">
-          <div class="task-icon">📢</div>
+          <div class="task-icon"><i class="fas fa-exclamation-triangle"></i></div>
           <div class="task-content">
             <div class="task-number">{{ pendingReports }}</div>
             <div class="task-label">待处理举报</div>
@@ -160,7 +158,7 @@
         </div>
 
         <div class="task-card">
-          <div class="task-icon">🚫</div>
+          <div class="task-icon"><i class="fas fa-ban"></i></div>
           <div class="task-content">
             <div class="task-number">{{ violationProducts }}</div>
             <div class="task-label">违规商品</div>
@@ -171,7 +169,7 @@
         </div>
 
         <div class="task-card">
-          <div class="task-icon">👤</div>
+          <div class="task-icon"><i class="fas fa-user-check"></i></div>
           <div class="task-content">
             <div class="task-number">{{ unverifiedUsers }}</div>
             <div class="task-label">未认证用户</div>
@@ -187,175 +185,69 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { mockStats } from '@/utils/mockData';
-import { config } from '@/utils/config';
-import { getDashboardStats, getAdminReportsStats } from '@/api/admin';
-import { getAdminUsersStats } from '@/api/users';
+import { getDashboardStats } from '@/api/admin';
 
 // 响应式数据
 const loading = ref(false);
-const stats = ref({});
+const stats = ref({
+  totalUsers: 0,
+  todayVerifiedUsers: 0,
+  totalProducts: 0,
+  todayProducts: 0,
+  totalTransactions: 0,
+  todayTransactions: 0,
+  activeUsers: 0,
+  productsByCategory: [],
+  userGrowth: [],
+  recentActivities: []
+});
 const selectedPeriod = ref('week');
-const userGrowthData = ref([]);
-const recentActivities = ref([]);
-const pendingReports = ref(3);
-const violationProducts = ref(1);
-const unverifiedUsers = ref(5);
+const pendingReports = ref(0);
+const violationProducts = ref(0);
+const unverifiedUsers = ref(0);
+
 
 // 计算属性
+const userGrowthData = computed(() => stats.value.userGrowth || []);
+const recentActivities = computed(() => stats.value.recentActivities || []);
+
 const maxUserCount = computed(() => {
-  return Math.max(...userGrowthData.value.map(p => p.count));
+  if (!userGrowthData.value.length) return 1;
+  return Math.max(...userGrowthData.value.map(p => p.count), 1);
 });
 
 const maxCategoryCount = computed(() => {
-  return Math.max(...(stats.value.productsByCategory || []).map(c => c.count));
+  if (!stats.value.productsByCategory.length) return 1;
+  return Math.max(...(stats.value.productsByCategory || []).map(c => c.count), 1);
 });
 
-// 模拟最近活动数据
-const mockActivities = [
-  {
-    id: 1,
-    type: 'user_register',
-    description: '用户 "新同学" 完成账号激活',
-    status: 'success',
-    createdAt: new Date(Date.now() - 10 * 60 * 1000).toISOString()
-  },
-  {
-    id: 2,
-    type: 'product_create',
-    description: '用户 "技术宅" 发布商品 "iPhone 14"',
-    status: 'success',
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString()
-  },
-  {
-    id: 3,
-    type: 'report_create',
-    description: '用户举报商品 "疑似假货"',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString()
-  },
-  {
-    id: 4,
-    type: 'transaction',
-    description: '商品 "MacBook Pro" 交易完成',
-    status: 'success',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 5,
-    type: 'product_delete',
-    description: '管理员下架违规商品',
-    status: 'warning',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-  }
-];
 
-// 加载统计数据
-async function loadStats() {
+// 方法
+async function loadDashboardData() {
   try {
     loading.value = true;
-    
-    if (config.useMockData) {
-      stats.value = mockStats;
-      recentActivities.value = mockActivities;
-    } else {
-      // 调用真实的API获取数据看板统计
-      const [dashboardResponse, reportsStatsResponse] = await Promise.all([
-        getDashboardStats(),
-        getAdminReportsStats()
-      ]);
-
-      const dashboardData = dashboardResponse.data.data || dashboardResponse.data;
-      const reportsData = reportsStatsResponse.data.data || reportsStatsResponse.data;
-
-      // 组合数据
-      stats.value = {
-        totalUsers: dashboardData.totalUsers,
-        totalProducts: dashboardData.totalProducts,
-        totalTransactions: dashboardData.totalTransactions,
-        activeUsers: dashboardData.activeUsers,
-        todayVerifiedUsers: dashboardData.todayVerifiedUsers,
-        todayProducts: dashboardData.todayProducts,
-        todayTransactions: dashboardData.todayTransactions,
-        productsByCategory: dashboardData.productsByCategory || [],
-        userGrowth: dashboardData.userGrowth || []
-      };
-
-      // 设置待处理事项数据
-      pendingReports.value = dashboardData.pendingReports || 0;
-      violationProducts.value = dashboardData.violationProducts || 0;
-      unverifiedUsers.value = dashboardData.unverifiedUsers || 0;
-
-      // 最近活动数据
-      recentActivities.value = dashboardData.recentActivities || mockActivities;
-
-      // 用户增长数据
-      if (dashboardData.userGrowth && dashboardData.userGrowth.length > 0) {
-        userGrowthData.value = dashboardData.userGrowth;
-      } else {
-        // 如果没有真实数据，使用模拟数据
-        loadChartData();
-      }
-
-      console.log('📊 数据看板数据已加载:', stats.value);
-      console.log('📈 用户增长数据:', userGrowthData.value);
+    const response = await getDashboardStats({ period: selectedPeriod.value });
+    if (response.data.status === 'success') {
+      stats.value = response.data.data;
+      // 从返回数据中提取待处理事项
+      pendingReports.value = stats.value.pendingReportsCount || 0;
+      violationProducts.value = stats.value.violationProductsCount || 0;
+      unverifiedUsers.value = stats.value.unactivatedUsersCount || 0;
     }
   } catch (error) {
-    console.error('Failed to load stats:', error);
-    // 如果API失败，使用模拟数据作为后备
-    stats.value = mockStats;
-    recentActivities.value = mockActivities;
+    console.error('Failed to load dashboard data:', error);
   } finally {
     loading.value = false;
   }
 }
 
-// 加载图表数据
+
 function loadChartData() {
-  if (config.useMockData) {
-    // 如果使用模拟数据，按时间段筛选
-    switch (selectedPeriod.value) {
-      case 'week':
-        userGrowthData.value = mockStats.userGrowth.slice(-7);
-        break;
-      case 'month':
-        userGrowthData.value = mockStats.userGrowth;
-        break;
-      case 'quarter':
-        userGrowthData.value = mockStats.userGrowth;
-        break;
-    }
-  } else if (userGrowthData.value && userGrowthData.value.length > 0) {
-    // 如果有真实数据，按时间段筛选
-    const allData = [...userGrowthData.value];
-    switch (selectedPeriod.value) {
-      case 'week':
-        userGrowthData.value = allData.slice(-7);
-        break;
-      case 'month':
-        userGrowthData.value = allData;
-        break;
-      case 'quarter':
-        userGrowthData.value = allData; // 真实数据目前只有30天
-        break;
-    }
-  } else {
-    // 备用模拟数据
-    switch (selectedPeriod.value) {
-      case 'week':
-        userGrowthData.value = mockStats.userGrowth.slice(-7);
-        break;
-      case 'month':
-        userGrowthData.value = mockStats.userGrowth;
-        break;
-      case 'quarter':
-        userGrowthData.value = mockStats.userGrowth;
-        break;
-    }
-  }
+  // 在实际应用中，这里会根据选择的周期重新从API获取数据
+  // 目前我们假设 getDashboardStats 已经能处理 period
+  loadDashboardData();
 }
 
-// 工具函数
 function formatChartDate(dateString) {
   const date = new Date(dateString);
   return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -379,13 +271,13 @@ function formatTime(timeString) {
 
 function getActivityIcon(type) {
   const icons = {
-    'user_register': '👤',
-    'product_create': '📦',
-    'report_create': '📢',
-    'transaction': '💰',
-    'product_delete': '🗑️'
+    'user_register': '<i class="fas fa-user-plus"></i>',
+    'product_create': '<i class="fas fa-plus-circle"></i>',
+    'report_create': '<i class="fas fa-flag"></i>',
+    'transaction': '<i class="fas fa-exchange-alt"></i>',
+    'product_delete': '<i class="fas fa-trash-alt"></i>'
   };
-  return icons[type] || '📋';
+  return icons[type] || '<i class="fas fa-info-circle"></i>';
 }
 
 function getStatusText(status) {
@@ -402,14 +294,14 @@ function getCategoryColor(category) {
   const colors = [
     '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#20c997'
   ];
-  const index = category.length % colors.length;
+  const hash = category.split('').reduce((acc, char) => char.charCodeAt(0) + ((acc << 5) - acc), 0);
+  const index = Math.abs(hash % colors.length);
   return colors[index];
 }
 
 // 组件挂载
 onMounted(() => {
-  loadStats();
-  loadChartData();
+  loadDashboardData();
 });
 </script>
 

@@ -222,10 +222,12 @@ export function getAdminReportsStats() {
 
 /**
  * 获取数据看板统计信息
+ * @param {object} params 查询参数，例如 { period: 'week' }
  */
-export function getDashboardStats() {
+export function getDashboardStats(params) {
   return request({
     url: '/admin/dashboard/stats',
     method: 'get',
+    params,
   });
 }

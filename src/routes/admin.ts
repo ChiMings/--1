@@ -7,46 +7,49 @@ import { sendTradeNotification, sendRoleChangeNotification, sendAccountStatusNot
 const router = Router();
 
 // 获取用户增长数据的辅助函数
-async function getUserGrowthData() {
+async function getUserGrowthData(period = 'month') {
   try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    let days = 30;
+    if (period === 'week') days = 7;
+    if (period === 'quarter') days = 90;
 
-    // 按天统计最近30天的用户注册数量
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days + 1);
+    startDate.setHours(0, 0, 0, 0);
+
+    // 一次性从数据库中按天分组获取数据
     const userGrowthRaw = await prisma.user.groupBy({
       by: ['createdAt'],
       where: {
         deleted: false,
-        createdAt: { gte: thirtyDaysAgo }
+        role: { not: '未认证用户' },
+        createdAt: { gte: startDate }
       },
-      _count: { id: true }
+      _count: {
+        id: true
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
     });
 
-    // 创建30天的日期数组
+    // 将数据库返回的数据转换为按日期聚合的 Map
+    const countsByDate = new Map<string, number>();
+    userGrowthRaw.forEach(item => {
+      const dateStr = item.createdAt.toISOString().split('T')[0];
+      countsByDate.set(dateStr, (countsByDate.get(dateStr) || 0) + item._count.id);
+    });
+    
+    // 生成日期范围内的完整数据（补全为0的天数）
     const growthData = [];
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
       
-      // 统计当天的注册用户数
-      const dayStart = new Date(date.setHours(0, 0, 0, 0));
-      const dayEnd = new Date(date.setHours(23, 59, 59, 999));
-      
-      const dayCount = await prisma.user.count({
-        where: {
-          deleted: false,
-          role: { not: '未认证用户' },
-          createdAt: {
-            gte: dayStart,
-            lte: dayEnd
-          }
-        }
-      });
-
       growthData.push({
         date: dateStr,
-        count: dayCount
+        count: countsByDate.get(dateStr) || 0
       });
     }
 
@@ -157,6 +160,8 @@ router.use(authenticateToken);
 // 获取数据看板统计信息
 router.get('/dashboard/stats', requireAdmin, async (req, res) => {
   try {
+    const { period } = req.query; // 从查询参数获取 period
+
     // 并行获取各种统计数据
     const [
       totalUsers,
@@ -182,14 +187,11 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
       // 交易总数（已售商品）
       prisma.product.count({ where: { deleted: false, status: '已售' } }),
       
-      // 活跃用户（最近7天有操作的用户）
+      // 活跃用户（最近7天有操作的用户） - 简化查询
       prisma.user.count({
         where: {
           deleted: false,
-          OR: [
-            { updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-            { products: { some: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } } }
-          ]
+          updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
         }
       }),
       
@@ -245,8 +247,8 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
         }
       }),
       
-      // 最近30天用户增长数据
-      getUserGrowthData(),
+      // 根据 period 获取用户增长数据
+      getUserGrowthData(period as string),
       
       // 最近活动
       getRecentActivities()
