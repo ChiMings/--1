@@ -36,6 +36,7 @@ async function getUserGrowthData() {
       const dayCount = await prisma.user.count({
         where: {
           deleted: false,
+          role: { not: '未认证用户' },
           createdAt: {
             gte: dayStart,
             lte: dayEnd
@@ -192,10 +193,11 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
         }
       }),
       
-      // 今日新注册用户
+      // 今日新认证用户（排除未认证用户）
       prisma.user.count({
         where: {
           deleted: false,
+          role: { not: '未认证用户' },
           createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
         }
       }),
@@ -261,7 +263,7 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
       totalProducts,
       totalTransactions,
       activeUsers,
-      todayRegistrations,
+      todayVerifiedUsers: todayRegistrations,
       todayProducts,
       todayTransactions,
       pendingReports,

@@ -13,7 +13,7 @@
           <div class="stat-number">{{ stats.totalUsers }}</div>
           <div class="stat-label">总用户数</div>
           <div class="stat-change positive">
-            +{{ stats.todayRegistrations }} 今日新增
+            +{{ stats.todayVerifiedUsers }} 今日新认证
           </div>
         </div>
       </div>
@@ -56,7 +56,7 @@
     <div class="charts-section">
       <div class="chart-container">
         <div class="chart-header">
-          <h3>用户增长趋势</h3>
+          <h3>认证用户增长趋势</h3>
           <div class="chart-actions">
             <select v-model="selectedPeriod" @change="loadChartData">
               <option value="week">最近一周</option>
@@ -274,7 +274,7 @@ async function loadStats() {
         totalProducts: dashboardData.totalProducts,
         totalTransactions: dashboardData.totalTransactions,
         activeUsers: dashboardData.activeUsers,
-        todayRegistrations: dashboardData.todayRegistrations,
+        todayVerifiedUsers: dashboardData.todayVerifiedUsers,
         todayProducts: dashboardData.todayProducts,
         todayTransactions: dashboardData.todayTransactions,
         productsByCategory: dashboardData.productsByCategory || [],
