@@ -10,7 +10,7 @@
             <p>功能受限：无法发布商品、评论、查看联系方式。完成账号激活可获得完整功能。</p>
           </div>
         </div>
-        <router-link to="/login" class="btn btn-warning">
+        <router-link to="/login?tab=activate" class="btn btn-warning">
           去激活账号
         </router-link>
       </div>

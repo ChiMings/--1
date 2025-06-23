@@ -101,7 +101,7 @@
               
               <div v-if="isUnverifiedUser && !isOwnProduct" class="unverified-contact">
                 <span class="unverified-text">需要认证后查看</span>
-                <router-link to="/login" class="btn btn-warning btn-sm">去激活</router-link>
+                <router-link to="/login?tab=activate" class="btn btn-warning btn-sm">去激活</router-link>
               </div>
             </div>
           </div>
@@ -204,7 +204,7 @@
         </div>
         
         <div v-else-if="isUnverifiedUser" class="unverified-prompt">
-          <p>⚠️ 完成账号激活后可发表评论 <router-link to="/login">去激活</router-link></p>
+          <p>⚠️ 完成账号激活后可发表评论 <router-link to="/login?tab=activate">去激活</router-link></p>
         </div>
 
         <!-- 评论列表 -->
@@ -219,7 +219,7 @@
               <span class="restriction-icon">🔒</span>
               完成账号激活后可查看和发表评论
             </p>
-            <router-link to="/login" class="btn btn-warning">去激活</router-link>
+            <router-link to="/login?tab=activate" class="btn btn-warning">去激活</router-link>
           </div>
           
           <!-- 认证用户可以查看评论 -->

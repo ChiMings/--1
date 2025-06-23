@@ -190,15 +190,36 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { config } from '@/utils/config';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 const activeTab = ref('login');
+
+// 根据URL参数设置默认标签
+onMounted(() => {
+  if (route.query.tab === 'activate') {
+    activeTab.value = 'activate';
+  } else if (route.query.tab === 'guest') {
+    activeTab.value = 'guest';
+  }
+});
+
+// 监听路由变化，确保参数变化时也能切换标签
+watch(() => route.query.tab, (newTab) => {
+  if (newTab === 'activate') {
+    activeTab.value = 'activate';
+  } else if (newTab === 'guest') {
+    activeTab.value = 'guest';
+  } else if (newTab === 'login') {
+    activeTab.value = 'login';
+  }
+});
 const loading = ref(false);
 const error = ref('');
 

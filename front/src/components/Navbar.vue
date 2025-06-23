@@ -12,8 +12,8 @@
         
         <template v-if="userStore.token">
           <!-- 用户菜单 -->
-          <div class="user-menu" @click="toggleUserMenu" ref="userMenuRef">
-            <div class="user-info">
+          <div class="user-menu" ref="userMenuRef">
+            <div class="user-info" @click="toggleUserMenu">
               <div class="user-avatar">
                 <img 
                   v-if="userStore.userInfo?.avatar" 
@@ -377,6 +377,8 @@ onUnmounted(() => {
   padding: 8px 12px;
   border-radius: 6px;
   transition: background-color 0.2s;
+  cursor: pointer;
+  user-select: none;
 }
 
 .user-info:hover {
