@@ -1,71 +1,36 @@
 <template>
-  <div class="product-card">
-    <div class="product-image">
-      <img 
-        :src="product.images?.[0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+'" 
+  <div class="product-card frosted-glass">
+    <div class="product-image-wrapper">
+      <img
+        :src="product.images?.[0] || '/首页bj.jpg'"
         :alt="product.name"
+        class="product-image"
         @error="handleImageError"
       />
-      <div class="product-status" :class="statusClass">
+      <div class="status-badge" :class="statusClass">
         {{ product.status }}
       </div>
+      <div class="favorite-button" @click.stop="onFavoriteClick">
+         <i :class="product.isFavorite ? 'fas fa-heart' : 'far fa-heart'"></i>
+      </div>
     </div>
-    
+
     <div class="product-info">
       <h3 class="product-name" :title="product.name">
         {{ product.name }}
       </h3>
-      
-      <p class="product-description">
-        {{ truncatedDescription }}
-      </p>
-      
-      <div class="product-price">
-        ¥{{ product.price }}
-      </div>
-      
+
       <div class="product-meta">
-        <span class="seller-name">{{ product.seller?.nickname || '卖家' }}</span>
-        <span class="created-at">{{ formatDate(product.createdAt) }}</span>
+         <div class="seller-info">
+            <img :src="product.seller?.avatar || '/首页bj.jpg'" alt="seller avatar" class="seller-avatar" @error="handleAvatarError">
+            <span class="seller-name">{{ product.seller?.nickname || '匿名用户' }}</span>
+        </div>
+        <span class="time-ago">{{ timeAgo(product.createdAt) }}</span>
       </div>
-      
-      <div class="product-actions" v-if="showActions">
-        <button 
-          v-if="isOwner" 
-          @click="$emit('edit', product)"
-          class="btn btn-secondary"
-        >
-          编辑
-        </button>
-        <button 
-          v-if="isOwner && product.status === '在售'" 
-          @click="$emit('mark-sold', product)"
-          class="btn btn-warning"
-        >
-          标记已售
-        </button>
-        <button 
-          v-if="isOwner" 
-          @click="$emit('delete', product)"
-          class="btn btn-danger"
-        >
-          删除
-        </button>
-        <button 
-          v-if="!isOwner && userStore.token && !isUnverifiedUser" 
-          @click="$emit('favorite', product)"
-          class="btn btn-primary"
-        >
-          {{ product.isFavorite ? '取消收藏' : '收藏' }}
-        </button>
-        <button 
-          v-if="!isOwner && isUnverifiedUser" 
-          @click="$emit('activation-tip')"
-          class="btn btn-outline-secondary"
-          disabled
-        >
-          收藏 (需要认证)
-        </button>
+
+      <div class="product-price">
+        <span class="price-symbol">¥</span>
+        <span class="price-value">{{ product.price }}</span>
       </div>
     </div>
   </div>
@@ -86,7 +51,7 @@ const props = defineProps({
   },
 });
 
-defineEmits(['edit', 'delete', 'mark-sold', 'favorite', 'activation-tip']);
+const emit = defineEmits(['edit', 'delete', 'mark-sold', 'favorite', 'activation-tip']);
 
 const userStore = useUserStore();
 
@@ -110,168 +75,167 @@ const truncatedDescription = computed(() => {
   return desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
 });
 
-function formatDate(dateString) {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('zh-CN');
+const onFavoriteClick = () => {
+  emit('favorite', props.product);
+};
+
+const timeAgo = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " 年前";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " 月前";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " 天前";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " 小时前";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " 分钟前";
+    return "刚刚";
 }
 
-function handleImageError(event) {
-  // 使用SVG占位图片，避免无限循环加载
-  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
-  // 移除事件监听器，防止重复触发
+const handleImageError = (event) => {
+  event.target.src = '/首页bj.jpg';
   event.target.onerror = null;
+};
+
+const handleAvatarError = (event) => {
+    event.target.src = '/首页bj.jpg';
+    event.target.onerror = null;
 }
 </script>
 
 <style scoped>
 .product-card {
-  border: 1px solid #e1e5e9;
-  border-radius: 8px;
+  border-radius: 16px;
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s;
-  background: white;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
 }
 
 .product-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+}
+
+.product-image-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 75%; /* 4:3 Aspect Ratio */
+  overflow: hidden;
 }
 
 .product-image {
-  position: relative;
-  height: 200px;
-  overflow: hidden;
-}
-
-.product-image img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.product-card:hover .product-image {
+  transform: scale(1.05);
 }
 
-.product-status {
+.status-badge {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  top: 1rem;
+  left: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
-
 .status-available {
-  background-color: #28a745;
+  background: rgba(var(--success-color), 0.8);
+}
+.status-sold {
+  background: rgba(var(--secondary-color), 0.8);
 }
 
-.status-sold {
-  background-color: #6c757d;
+.favorite-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--danger-color);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.favorite-button:hover {
+  transform: scale(1.1);
+  background: white;
+}
+.favorite-button .fa-heart.fas {
+  color: var(--danger-color);
+}
+.favorite-button .fa-heart.far {
+  color: var(--text-color-secondary);
 }
 
 .product-info {
-  padding: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .product-name {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #333;
+  color: var(--text-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.product-description {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #666;
-  line-height: 1.4;
-  min-height: 40px;
-}
-
-.product-price {
-  font-size: 18px;
-  font-weight: 700;
-  color: #e74c3c;
-  margin-bottom: 12px;
 }
 
 .product-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  font-size: 12px;
-  color: #999;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+}
+.seller-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.seller-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
-.product-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.product-price {
+  margin-top: auto;
+  font-weight: 700;
+  color: var(--primary-color);
 }
-
-.btn {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+.price-symbol {
+  font-size: 0.9rem;
+  margin-right: 2px;
 }
-
-.btn-primary {
-  background-color: #007bff;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #0056b3;
-}
-
-.btn-secondary {
-  background-color: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background-color: #545b62;
-}
-
-.btn-warning {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-.btn-warning:hover {
-  background-color: #e0a800;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background-color: #c82333;
-}
-
-.btn-outline-secondary {
-  background: transparent;
-  color: #6c757d;
-  border: 1px solid #6c757d;
-}
-
-.btn-outline-secondary:hover:not(:disabled) {
-  background: #6c757d;
-  color: white;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.price-value {
+  font-size: 1.5rem;
 }
 </style> 

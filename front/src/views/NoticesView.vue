@@ -1,214 +1,163 @@
 <template>
-  <div class="notices-page">
-    <!-- 页面头部 -->
-    <div class="page-header">
-      <div class="container">
-        <h1>📢 系统公告</h1>
-        <p>查看平台最新动态和重要通知</p>
-      </div>
-    </div>
-
-    <div class="container">
-      <!-- 管理员操作区 -->
-      <div v-if="isSuperAdmin" class="admin-actions">
-        <button @click="showCreateNotice" class="btn btn-primary">
-          ➕ 发布新公告
-        </button>
-        <button @click="toggleManageMode" class="btn btn-secondary">
-          {{ isManageMode ? '退出管理' : '管理公告' }}
-        </button>
+  <div class="notices-view">
+    <div class="frosted-glass content-card">
+      <!-- Header -->
+      <div class="card-header">
+        <h2 class="page-title">
+          <i class="fas fa-bullhorn"></i> 系统公告
+        </h2>
+        <div v-if="isSuperAdmin" class="admin-controls">
+          <button @click="showCreateNotice" class="btn btn-primary">
+            <i class="fas fa-plus"></i> 发布新公告
+          </button>
+          <button @click="toggleManageMode" class="btn">
+            <i :class="isManageMode ? 'fas fa-times' : 'fas fa-edit'"></i>
+            {{ isManageMode ? '退出管理' : '管理公告' }}
+          </button>
+        </div>
       </div>
 
-      <!-- 公告统计 -->
-      <div class="notices-stats">
+      <!-- Stats -->
+      <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon">📋</div>
+          <div class="stat-icon-wrapper"><i class="fas fa-file-alt"></i></div>
           <div class="stat-info">
             <div class="stat-number">{{ notices.length }}</div>
             <div class="stat-label">总公告数</div>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">🔥</div>
+          <div class="stat-icon-wrapper"><i class="fas fa-check-circle"></i></div>
           <div class="stat-info">
             <div class="stat-number">{{ activeNotices.length }}</div>
             <div class="stat-label">有效公告</div>
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon">📌</div>
+          <div class="stat-icon-wrapper"><i class="fas fa-thumbtack"></i></div>
           <div class="stat-info">
             <div class="stat-number">{{ pinnedNotices.length }}</div>
             <div class="stat-label">置顶公告</div>
           </div>
         </div>
       </div>
-
-      <!-- 公告列表 -->
-      <div class="notices-container">
-        <div v-if="loading" class="loading">
-          <p>📄 加载公告中...</p>
+      
+      <!-- Notices List -->
+      <div class="notices-list-container">
+        <div v-if="loading" class="loading-state">
+          <div class="spinner"></div>
+          <p>正在加载公告...</p>
         </div>
 
-        <div v-else-if="filteredNotices.length === 0" class="empty-notices">
-          <div class="empty-icon">📭</div>
+        <div v-else-if="filteredNotices.length === 0" class="empty-state">
+          <i class="fas fa-inbox fa-3x"></i>
           <h3>暂无公告</h3>
           <p v-if="isSuperAdmin">点击"发布新公告"来发布第一个公告</p>
           <p v-else>目前还没有系统公告，请稍后查看</p>
         </div>
 
         <div v-else class="notices-list">
-          <div 
-            v-for="notice in filteredNotices" 
+          <div
+            v-for="notice in filteredNotices"
             :key="notice.id"
-            :class="['notice-item', {
-              'notice-pinned': notice.isPinned,
-              'notice-urgent': notice.priority === 'urgent',
-              'notice-expired': isExpired(notice)
-            }]"
+            :class="['notice-item', { 'is-pinned': notice.isPinned, 'is-expired': isExpired(notice) }]"
           >
-            <!-- 公告标签 -->
-            <div class="notice-badges">
-              <span v-if="notice.isPinned" class="badge badge-pinned">📌 置顶</span>
-              <span v-if="notice.priority === 'urgent'" class="badge badge-urgent">🚨 紧急</span>
-              <span v-if="notice.priority === 'important'" class="badge badge-important">⚠️ 重要</span>
-              <span v-if="isExpired(notice)" class="badge badge-expired">⏰ 已过期</span>
-            </div>
-
-            <!-- 公告内容 -->
-            <div class="notice-content">
+            <div class="notice-header">
               <h3 class="notice-title">{{ notice.title }}</h3>
-              <div class="notice-meta">
-                <span class="notice-author">{{ notice.author }}</span>
-                <span class="notice-date">{{ formatDate(notice.createdAt) }}</span>
-                <span v-if="notice.expiresAt" class="notice-expires">
-                  有效期至: {{ formatDate(notice.expiresAt) }}
-                </span>
+              <div class="notice-tags">
+                <span v-if="notice.isPinned" class="tag tag-pinned"><i class="fas fa-thumbtack"></i> 置顶</span>
+                <span v-if="notice.priority === 'urgent'" class="tag tag-urgent"><i class="fas fa-exclamation-triangle"></i> 紧急</span>
+                <span v-if="notice.priority === 'important'" class="tag tag-important"><i class="fas fa-info-circle"></i> 重要</span>
+                <span v-if="isExpired(notice)" class="tag tag-expired"><i class="fas fa-clock"></i> 已过期</span>
               </div>
-              <div class="notice-body" v-html="formatContent(notice.content)"></div>
             </div>
-
-            <!-- 管理员操作 -->
+            <div class="notice-meta">
+              <span><i class="fas fa-user"></i> {{ notice.author }}</span>
+              <span><i class="fas fa-calendar-alt"></i> {{ formatDate(notice.createdAt) }}</span>
+              <span v-if="notice.expiresAt"><i class="fas fa-hourglass-end"></i> 有效期至: {{ formatDate(notice.expiresAt) }}</span>
+            </div>
+            <div class="notice-body" v-html="formatContent(notice.content)"></div>
             <div v-if="isSuperAdmin && isManageMode" class="notice-actions">
-              <button @click="editNotice(notice)" class="btn btn-sm btn-primary">
-                ✏️ 编辑
+              <button @click="editNotice(notice)" class="btn btn-sm">
+                <i class="fas fa-pencil-alt"></i> 编辑
               </button>
-              <button 
-                @click="togglePin(notice)" 
-                :class="['btn', 'btn-sm', notice.isPinned ? 'btn-warning' : 'btn-outline-warning']"
-              >
-                {{ notice.isPinned ? '📌 取消置顶' : '📌 置顶' }}
+              <button @click="togglePin(notice)" :class="['btn', 'btn-sm', notice.isPinned ? 'btn-secondary' : '']">
+                <i :class="notice.isPinned ? 'fas fa-unlink' : 'fas fa-thumbtack'"></i> {{ notice.isPinned ? '取消置顶' : '置顶' }}
               </button>
               <button @click="handleDeleteNotice(notice)" class="btn btn-sm btn-danger">
-                🗑️ 删除
+                <i class="fas fa-trash-alt"></i> 删除
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="pagination-container">
-        <div class="pagination">
-          <button
-            @click="changePage(currentPage - 1)"
-            :disabled="currentPage <= 1"
-            class="pagination-btn"
-          >
-            上一页
+      
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination-controls">
+          <button @click="changePage(currentPage - 1)" :disabled="currentPage <= 1" class="btn">
+              <i class="fas fa-chevron-left"></i>
           </button>
-          
-          <span class="page-info">
-            第 {{ currentPage }} 页，共 {{ totalPages }} 页 ({{ total }} 条公告)
-          </span>
-          
-          <button
-            @click="changePage(currentPage + 1)"
-            :disabled="currentPage >= totalPages"
-            class="pagination-btn"
-          >
-            下一页
+          <span>第 {{ currentPage }} / {{ totalPages }} 页</span>
+          <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages" class="btn">
+              <i class="fas fa-chevron-right"></i>
           </button>
-        </div>
       </div>
     </div>
 
-    <!-- 发布/编辑公告弹窗 -->
-    <div v-if="showNoticeDialog" class="modal-overlay" @click="closeNoticeDialog">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>{{ isEditing ? '编辑公告' : '发布新公告' }}</h3>
-          <button @click="closeNoticeDialog" class="close-btn">&times;</button>
-        </div>
-        
-        <div class="modal-body">
-          <form @submit.prevent="submitNotice">
-            <div class="form-group">
-              <label>公告标题 <span class="required">*</span></label>
-              <input 
-                v-model="noticeForm.title" 
-                type="text" 
-                placeholder="请输入公告标题"
-                required
-              />
-            </div>
-            
-            <div class="form-row">
+    <!-- Create/Edit Notice Modal -->
+    <transition name="modal-fade">
+      <div v-if="showNoticeDialog" class="modal-backdrop" @click="closeNoticeDialog">
+        <div class="modal-dialog frosted-glass" @click.stop>
+          <div class="modal-header">
+            <h3>{{ isEditing ? '编辑公告' : '发布新公告' }}</h3>
+            <button @click="closeNoticeDialog" class="close-button">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="submitNotice">
               <div class="form-group">
-                <label>优先级</label>
-                <select v-model="noticeForm.priority">
-                  <option value="normal">普通</option>
-                  <option value="important">重要</option>
-                  <option value="urgent">紧急</option>
-                </select>
+                <label for="notice-title">公告标题 <span class="required-mark">*</span></label>
+                <input id="notice-title" v-model="noticeForm.title" type="text" placeholder="请输入公告标题" required class="form-control" />
               </div>
               
-              <div class="form-group checkbox-group">
-                <label class="checkbox-label">
-                  <input 
-                    v-model="noticeForm.isPinned" 
-                    type="checkbox"
-                    class="checkbox-input"
-                  />
-                  <span class="checkbox-text">置顶显示</span>
-                </label>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="notice-priority">优先级</label>
+                  <select id="notice-priority" v-model="noticeForm.priority" class="form-control">
+                    <option value="normal">普通</option>
+                    <option value="important">重要</option>
+                    <option value="urgent">紧急</option>
+                  </select>
+                </div>
+                <div class="form-group checkbox-group">
+                  <input id="notice-pinned" v-model="noticeForm.isPinned" type="checkbox" class="custom-checkbox" />
+                  <label for="notice-pinned">置顶显示</label>
+                </div>
               </div>
-            </div>
-            
-            <div class="form-group">
-              <label>有效期</label>
-              <input 
-                v-model="noticeForm.expiresAt" 
-                type="datetime-local"
-              />
-              <small class="form-hint">留空表示永久有效</small>
-            </div>
-            
-            <div class="form-group">
-              <label>公告内容 <span class="required">*</span></label>
-              <textarea 
-                v-model="noticeForm.content" 
-                rows="8"
-                placeholder="请输入公告内容，支持HTML格式"
-                required
-              ></textarea>
-              <small class="form-hint">支持HTML标签，如 &lt;strong&gt;、&lt;em&gt;、&lt;a&gt; 等</small>
-            </div>
-          </form>
-        </div>
-        
-        <div class="modal-footer">
-          <button @click="closeNoticeDialog" class="btn btn-outline">取消</button>
-          <button 
-            @click="submitNotice"
-            :disabled="!noticeForm.title || !noticeForm.content"
-            class="btn btn-primary"
-          >
-            {{ isEditing ? '更新公告' : '发布公告' }}
-          </button>
+              
+              <div class="form-group">
+                <label for="notice-expires">有效期</label>
+                <input id="notice-expires" v-model="noticeForm.expiresAt" type="datetime-local" class="form-control" />
+                <small class="form-text">留空表示永久有效</small>
+              </div>
+              
+              <div class="form-group">
+                <label for="notice-content">公告内容 <span class="required-mark">*</span></label>
+                <textarea id="notice-content" v-model="noticeForm.content" rows="8" placeholder="请输入公告内容，支持 Markdown 和部分 HTML" required class="form-control"></textarea>
+                <small class="form-text">支持 &lt;strong&gt;bold&lt;/strong&gt;, &lt;em&gt;italic&lt;/em&gt;, &lt;a href="#"&gt;links&lt;/a&gt; 等.</small>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button @click="closeNoticeDialog" class="btn btn-secondary">取消</button>
+            <button @click="submitNotice" :disabled="!noticeForm.title || !noticeForm.content" class="btn btn-primary">
+              <i class="fas fa-paper-plane"></i> {{ isEditing ? '更新公告' : '发布公告' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </transition>
   </div>
 </template>
 
@@ -456,546 +405,385 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.notices-page {
-  min-height: 100vh;
-  background: #f8f9fa;
-}
-
-.page-header {
-  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-  color: white;
-  padding: 60px 0;
-  text-align: center;
-}
-
-.page-header h1 {
-  margin: 0 0 12px 0;
-  font-size: 2.5rem;
-  font-weight: 700;
-}
-
-.page-header p {
-  margin: 0;
-  font-size: 1.1rem;
-  opacity: 0.9;
-}
-
-.container {
-  max-width: 1000px;
+/* Main Layout */
+.notices-view {
+  padding: 2rem;
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
 }
 
-.admin-actions {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.content-card {
+  padding: 2rem;
+  border-radius: 1.5rem;
+}
+
+.card-header {
   display: flex;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
-.notices-stats {
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.admin-controls .btn i {
+  margin-right: 0.5rem;
+}
+
+/* Stats */
+.stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin: 20px 0;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .stat-card {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 1rem;
+  transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
-.stat-icon {
-  font-size: 2rem;
+.stat-card:hover {
+  transform: translateY(-5px);
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.stat-icon-wrapper {
+  font-size: 1.75rem;
+  color: var(--primary-color);
   width: 50px;
   height: 50px;
-  background: #f8f9fa;
+  display: grid;
+  place-items: center;
+  background-color: rgba(var(--primary-color-rgb), 0.1);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.stat-number {
-  font-size: 1.5rem;
+.stat-info .stat-number {
+  font-size: 1.75rem;
   font-weight: 700;
-  color: #333;
-  margin-bottom: 4px;
+  color: var(--text-primary);
 }
 
-.stat-label {
-  color: #666;
+.stat-info .stat-label {
   font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
-.notices-container {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  margin: 20px 0;
-}
-
-.loading {
-  padding: 60px;
-  text-align: center;
-  color: #666;
-}
-
-.empty-notices {
-  padding: 60px;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 16px;
-}
-
-.empty-notices h3 {
-  margin: 0 0 8px 0;
-  color: #333;
-}
-
-.empty-notices p {
-  margin: 0;
-  color: #666;
+/* Notices List */
+.notices-list-container {
+  min-height: 300px;
 }
 
 .notices-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 1.5rem;
 }
 
 .notice-item {
-  padding: 24px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.2s;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .notice-item:hover {
-  background: #f8f9fa;
+  border-color: var(--primary-color);
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
 }
 
-.notice-item:last-child {
-  border-bottom: none;
+.notice-item.is-pinned {
+  border-left: 4px solid var(--primary-color);
 }
 
-.notice-pinned {
-  background: #fff3cd;
-  border-left: 4px solid #ffc107;
-}
-
-.notice-urgent {
-  background: #f8d7da;
-  border-left: 4px solid #dc3545;
-}
-
-.notice-expired {
+.notice-item.is-expired {
   opacity: 0.6;
 }
+.notice-item.is-expired .notice-title {
+ text-decoration: line-through;
+}
 
-.notice-badges {
+.notice-header {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
   flex-wrap: wrap;
-}
-
-.badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.badge-pinned {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.badge-urgent {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.badge-important {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.badge-expired {
-  background: #e2e3e5;
-  color: #6c757d;
 }
 
 .notice-title {
-  margin: 0 0 12px 0;
-  font-size: 1.3rem;
-  color: #333;
+  font-size: 1.25rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
+
+.notice-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tag-pinned { background-color: rgba(var(--primary-color-rgb), 0.2); color: var(--primary-color); }
+.tag-urgent { background-color: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.tag-important { background-color: rgba(234, 179, 8, 0.2); color: #eab308; }
+.tag-expired { background-color: rgba(107, 114, 128, 0.2); color: #6b7280; }
 
 .notice-meta {
   display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  font-size: 0.85rem;
-  color: #666;
   flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.notice-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .notice-body {
+  color: var(--text-secondary);
   line-height: 1.6;
-  color: #555;
 }
-
-.notice-body :deep(p) {
-  margin-bottom: 12px;
+.notice-body ::v-deep(p) {
+  margin-bottom: 1rem;
 }
-
-.notice-body :deep(ul),
-.notice-body :deep(ol) {
-  margin: 12px 0;
-  padding-left: 24px;
+.notice-body ::v-deep(a) {
+  color: var(--primary-color);
+  text-decoration: none;
 }
-
-.notice-body :deep(li) {
-  margin-bottom: 4px;
+.notice-body ::v-deep(a:hover) {
+  text-decoration: underline;
 }
 
 .notice-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e9ecef;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+.notice-actions .btn i {
+  margin-right: 0.3rem;
 }
 
-/* 按钮样式 */
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 14px;
-  transition: all 0.2s;
-  font-weight: 500;
+/* Loading and Empty States */
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
 }
-
-.btn-sm {
-  padding: 4px 8px;
-  font-size: 12px;
-}
-
-.btn-primary {
-  background: #007bff;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover {
-  background: #545b62;
-}
-
-.btn-warning {
-  background: #ffc107;
-  color: #212529;
-}
-
-.btn-warning:hover {
-  background: #e0a800;
-}
-
-.btn-outline-warning {
-  background: transparent;
-  color: #ffc107;
-  border: 1px solid #ffc107;
-}
-
-.btn-outline-warning:hover {
-  background: #ffc107;
-  color: #212529;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #c82333;
-}
-
-.btn-outline {
-  background: transparent;
-  color: #6c757d;
-  border: 1px solid #6c757d;
-}
-
-.btn-outline:hover {
-  background: #6c757d;
-  color: white;
-}
-
-.btn:disabled {
+.empty-state i {
+  color: var(--text-primary);
   opacity: 0.5;
-  cursor: not-allowed;
+  margin-bottom: 1rem;
+}
+.empty-state h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
 }
 
-/* 弹窗样式 */
-.modal-overlay {
+/* Pagination */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-controls .btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+
+/* Modal */
+.modal-fade-enter-active, .modal-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-fade-enter-from, .modal-fade-leave-to {
+  opacity: 0;
+}
+
+.modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   z-index: 1000;
 }
 
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+.modal-dialog {
   width: 90%;
-  max-width: 600px;
+  max-width: 700px;
+  border-radius: 1.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
-  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
 }
 
 .modal-header {
+  padding: 1.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
-
 .modal-header h3 {
-  margin: 0;
-  color: #333;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
-
-.close-btn {
+.close-button {
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 1.5rem;
   cursor: pointer;
-  color: #666;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  color: var(--text-secondary);
+  transition: color 0.3s;
+  padding: 0.5rem;
+  line-height: 1;
 }
-
-.close-btn:hover {
-  color: #333;
-}
+.close-button:hover { color: var(--text-primary); }
 
 .modal-body {
-  padding: 20px;
+  padding: 2rem;
+  overflow-y: auto;
+  flex-grow: 1;
 }
 
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 20px;
-  border-top: 1px solid #e9ecef;
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: center;
 }
 
 .form-group {
-  margin-bottom: 20px;
-}
-
-.form-row {
-  display: flex;
-  gap: 20px;
-}
-
-.form-row .form-group {
-  flex: 1;
+  margin-bottom: 1.5rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
   font-weight: 500;
-  color: #333;
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: border-color 0.2s;
+.required-mark {
+  color: var(--danger-color);
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #007bff;
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 120px;
-}
-
-.form-hint {
+.form-text {
   display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  color: #666;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
 }
 
-.required {
-  color: #dc3545;
-}
-
-/* 复选框样式 */
 .checkbox-group {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 0.75rem;
+  padding-top: 1.5rem; /* Align with label of sibling */
 }
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.checkbox-group label {
+  margin-bottom: 0;
+  color: var(--text-primary);
   cursor: pointer;
-  margin: 0;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: #f8f9fa;
-  transition: all 0.2s;
 }
 
-.checkbox-label:hover {
-  background: #e9ecef;
-  border-color: #007bff;
-}
-
-.checkbox-input {
-  width: auto !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.checkbox-text {
-  font-weight: 500;
-  color: #333;
-}
-
-/* 分页样式 */
-.pagination-container {
-  padding: 20px;
-  background: white;
-  border-top: 1px solid #e9ecef;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-}
-
-.pagination-btn {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  color: #333;
+.custom-checkbox {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--border-color);
+  border-radius: 0.375rem;
   cursor: pointer;
+  position: relative;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
-
-.pagination-btn:hover:not(:disabled) {
-  background: #007bff;
+.custom-checkbox:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+.custom-checkbox:checked::after {
+  content: "✔";
   color: white;
-  border-color: #007bff;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.8rem;
 }
 
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-info {
-  color: #666;
-  font-size: 14px;
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    padding: 40px 0;
-  }
-  
-  .page-header h1 {
-    font-size: 2rem;
-  }
-  
-  .admin-actions {
-    flex-direction: column;
-  }
-  
-  .notices-stats {
-    grid-template-columns: 1fr;
-  }
-  
-  .notice-meta {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .form-row {
-    flex-direction: column;
-  }
-  
-  .modal-content {
-    width: 95%;
-    margin: 20px;
-  }
-
-  .pagination {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .page-info {
-    order: -1;
-  }
+.modal-footer {
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 </style>

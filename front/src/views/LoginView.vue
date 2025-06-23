@@ -1,182 +1,177 @@
 <template>
   <div class="login-page">
-    <div class="login-container">
+    <div class="login-container frosted-glass">
       <div class="login-header">
-        <h1>校园二手交易平台</h1>
-        <p>安全、便捷、高效的校园交易平台</p>
-      </div>
-
-      <!-- 开发模式快速登录 -->
-      <div v-if="isDevelopmentMode" class="quick-login-section">
-        <h3>快速登录 (开发模式)</h3>
-        <div class="quick-login-buttons">
-          <button @click="quickLoginAs(1)" class="btn btn-primary">
-            登录为: 技术宅 (认证用户)
-          </button>
-          <button @click="quickLoginAs(2)" class="btn btn-success">
-            登录为: 书虫 (管理员)
-          </button>
-          <button @click="quickLoginAs(4)" class="btn btn-danger">
-            登录为: 超级管理员 (最高权限)
-          </button>
-          <button @click="quickLoginAs(5)" class="btn btn-secondary">
-            登录为: 待激活用户 (功能受限)
-          </button>
-          <button @click="quickLoginAs(6)" class="btn btn-info">
-            登录为: 数码控 (未认证用户)
-          </button>
-          <button @click="quickLoginAs(3)" class="btn btn-warning">
-            登录为: 运动达人 (认证用户)
-          </button>
-        </div>
-        <div class="divider">或者手动登录</div>
+        <h1>欢迎回来</h1>
+        <p>登录以继续探索闲置交易</p>
       </div>
 
       <!-- 登录类型切换 -->
       <div class="login-tabs">
-        <button 
+        <button
           :class="['tab', { active: activeTab === 'login' }]"
           @click="activeTab = 'login'"
         >
-          登录
+          <i class="fas fa-sign-in-alt"></i> 登录
         </button>
-        <button 
+        <button
           :class="['tab', { active: activeTab === 'guest' }]"
           @click="activeTab = 'guest'"
         >
-          游客登录
+          <i class="fas fa-user-friends"></i> 游客
         </button>
-        <button 
+        <button
           :class="['tab', { active: activeTab === 'activate' }]"
           @click="activeTab = 'activate'"
         >
-          账号激活
+          <i class="fas fa-user-check"></i> 激活
         </button>
       </div>
+      
+      <transition name="fade" mode="out-in">
+        <div :key="activeTab">
+          <!-- 认证登录表单 -->
+          <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="login-form">
+            <div class="form-group">
+              <label for="login-studentId">学工号</label>
+              <input
+                id="login-studentId"
+                v-model="loginForm.studentId"
+                type="text"
+                class="form-control"
+                placeholder="请输入学工号"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="login-password">密码</label>
+              <input
+                id="login-password"
+                v-model="loginForm.password"
+                type="password"
+                class="form-control"
+                placeholder="请输入密码"
+                required
+              />
+            </div>
+            <button type="submit" :disabled="loading" class="btn btn-primary submit-btn">
+              {{ loading ? '登录中...' : '登录' }}
+            </button>
+          </form>
 
-      <!-- 认证登录表单 -->
-      <form v-if="activeTab === 'login'" @submit.prevent="handleLogin" class="login-form">
-        <div class="form-group">
-          <label>学工号</label>
-          <input 
-            v-model="loginForm.studentId" 
-            type="text" 
-            placeholder="请输入学工号"
-            required 
-          />
-        </div>
-        <div class="form-group">
-          <label>密码</label>
-          <input 
-            v-model="loginForm.password" 
-            type="password" 
-            placeholder="请输入密码"
-            required 
-          />
-        </div>
-        <button type="submit" :disabled="loading" class="submit-btn">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
-        
-        <!-- 开发模式提示 -->
-        <div v-if="isDevelopmentMode" class="dev-hint">
-          <small>💡 开发模式：任意学工号和密码都可以登录</small>
-        </div>
-      </form>
+          <!-- 游客登录表单 -->
+          <form v-if="activeTab === 'guest'" @submit.prevent="handleGuestLogin" class="login-form">
+            <div class="form-group">
+              <label for="guest-studentId">学工号</label>
+              <input
+                id="guest-studentId"
+                v-model="guestForm.studentId"
+                type="text"
+                class="form-control"
+                placeholder="请输入学工号"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="guest-name">姓名</label>
+              <input
+                id="guest-name"
+                v-model="guestForm.name"
+                type="text"
+                class="form-control"
+                placeholder="请输入真实姓名"
+                required
+              />
+            </div>
+            <button type="submit" :disabled="loading" class="btn btn-primary submit-btn">
+              {{ loading ? '登录中...' : '游客登录' }}
+            </button>
+             <p class="form-note">
+              注：游客身份功能受限，建议激活账号获得完整功能
+            </p>
+          </form>
 
-      <!-- 游客登录表单 -->
-      <form v-if="activeTab === 'guest'" @submit.prevent="handleGuestLogin" class="login-form">
-        <div class="form-group">
-          <label>学工号</label>
-          <input 
-            v-model="guestForm.studentId" 
-            type="text" 
-            placeholder="请输入学工号"
-            required 
-          />
+          <!-- 账号激活表单 -->
+          <form v-if="activeTab === 'activate'" @submit.prevent="handleActivate" class="login-form">
+             <div class="form-group">
+              <label for="activate-studentId">学工号</label>
+              <input
+                id="activate-studentId"
+                v-model="activateForm.studentId"
+                type="text"
+                class="form-control"
+                placeholder="请输入学工号"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="activate-name">姓名</label>
+              <input
+                id="activate-name"
+                v-model="activateForm.name"
+                type="text"
+                class="form-control"
+                placeholder="请输入真实姓名"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="activate-code">激活码</label>
+              <input
+                id="activate-code"
+                v-model="activateForm.activationCode"
+                type="text"
+                class="form-control"
+                placeholder="请输入激活码"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="activate-password">设置密码</label>
+              <input
+                id="activate-password"
+                v-model="activateForm.password"
+                type="password"
+                class="form-control"
+                placeholder="请设置登录密码"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="activate-nickname">昵称</label>
+              <input
+                id="activate-nickname"
+                v-model="activateForm.nickname"
+                type="text"
+                class="form-control"
+                placeholder="请设置一个独特的昵称"
+                required
+              />
+            </div>
+            <button type="submit" :disabled="loading" class="btn btn-primary submit-btn">
+              {{ loading ? '激活中...' : '激活账号' }}
+            </button>
+          </form>
         </div>
-        <div class="form-group">
-          <label>姓名</label>
-          <input 
-            v-model="guestForm.name" 
-            type="text" 
-            placeholder="请输入真实姓名"
-            required 
-          />
-        </div>
-        <button type="submit" :disabled="loading" class="submit-btn">
-          {{ loading ? '登录中...' : '游客登录' }}
-        </button>
-        <p class="form-note">
-          注：游客身份功能受限，建议激活账号获得完整功能
-        </p>
-        
-        <!-- 开发模式示例 -->
-        <div v-if="isDevelopmentMode" class="dev-hint">
-          <small>💡 示例：学工号 20210001，姓名 张三</small>
-        </div>
-      </form>
-
-      <!-- 账号激活表单 -->
-      <form v-if="activeTab === 'activate'" @submit.prevent="handleActivate" class="login-form">
-        <div class="form-group">
-          <label>学工号</label>
-          <input 
-            v-model="activateForm.studentId" 
-            type="text" 
-            placeholder="请输入学工号"
-            required 
-          />
-        </div>
-        <div class="form-group">
-          <label>姓名</label>
-          <input 
-            v-model="activateForm.name" 
-            type="text" 
-            placeholder="请输入真实姓名"
-            required 
-          />
-        </div>
-        <div class="form-group">
-          <label>激活码</label>
-          <input 
-            v-model="activateForm.activationCode" 
-            type="text" 
-            placeholder="请输入激活码"
-            required 
-          />
-        </div>
-        <div class="form-group">
-          <label>设置密码</label>
-          <input 
-            v-model="activateForm.password" 
-            type="password" 
-            placeholder="请设置登录密码"
-            required 
-          />
-        </div>
-        <div class="form-group">
-          <label>昵称</label>
-          <input 
-            v-model="activateForm.nickname" 
-            type="text" 
-            placeholder="请设置昵称"
-            required 
-          />
-        </div>
-        <button type="submit" :disabled="loading" class="submit-btn">
-          {{ loading ? '激活中...' : '激活账号' }}
-        </button>
-        
-        <!-- 开发模式示例 -->
-        <div v-if="isDevelopmentMode" class="dev-hint">
-          <small>💡 示例：学工号 20210001，姓名 张三，激活码 ABC123</small>
-        </div>
-      </form>
+      </transition>
 
       <!-- 错误信息 -->
-      <div v-if="error" class="error-message">
-        {{ error }}
+      <transition name="fade">
+        <div v-if="error" class="error-message">
+          <i class="fas fa-exclamation-circle"></i> {{ error }}
+        </div>
+      </transition>
+
+      <!-- 开发模式快速登录 -->
+      <div v-if="isDevelopmentMode" class="quick-login-section">
+        <div class="divider"><span>或</span></div>
+        <p class="quick-login-title">快速登录 (开发模式)</p>
+        <div class="quick-login-buttons">
+          <button @click="quickLoginAs(2)" class="btn btn-sm">管理员</button>
+          <button @click="quickLoginAs(1)" class="btn btn-sm">认证用户</button>
+          <button @click="quickLoginAs(6)" class="btn btn-sm">未认证用户</button>
+          <button @click="quickLoginAs(5)" class="btn btn-sm">待激活</button>
+        </div>
       </div>
 
       <!-- 忘记密码链接 -->
@@ -350,248 +345,173 @@ async function handleActivate() {
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 20px;
+  align-items: center;
+  min-height: calc(100vh - 64px); /* Subtract navbar height */
+  padding: 2rem 1rem;
 }
 
 .login-container {
-  background: white;
-  border-radius: 12px;
-  padding: 40px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  padding: 2.5rem;
+  border-radius: 1.5rem; /* Larger radius for a softer look */
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 2rem;
 }
 
 .login-header h1 {
-  margin: 0 0 8px 0;
-  color: #333;
-  font-size: 24px;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-color);
 }
 
 .login-header p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.quick-login-section {
-  margin-bottom: 32px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  border: 2px dashed #007bff;
-}
-
-.quick-login-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  color: #007bff;
-  text-align: center;
-}
-
-.quick-login-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.quick-login-buttons .btn {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #007bff;
-  color: white;
-}
-
-.btn-success {
-  background: #28a745;
-  color: white;
-}
-
-.btn-warning {
-  background: #ffc107;
-  color: #212529;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-info {
-  background: #17a2b8;
-  color: white;
-}
-
-.divider {
-  text-align: center;
-  margin: 16px 0 0 0;
-  padding-top: 16px;
-  border-top: 1px solid #dee2e6;
-  color: #666;
-  font-size: 14px;
+  color: var(--text-color-secondary);
 }
 
 .login-tabs {
-  display: flex;
-  margin-bottom: 24px;
-  border-bottom: 1px solid #e1e5e9;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  background-color: var(--bg-color-alt);
+  border-radius: 8px;
+  padding: 0.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .tab {
-  flex: 1;
-  padding: 12px 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
   border: none;
-  background: none;
+  background: transparent;
+  color: var(--text-color-secondary);
+  border-radius: 6px;
   cursor: pointer;
-  color: #666;
-  font-size: 14px;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s;
-}
-
-.tab.active {
-  color: #007bff;
-  border-bottom-color: #007bff;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.2s ease;
 }
 
 .tab:hover {
-  color: #007bff;
+  background-color: rgba(var(--bg-elevated-rgb), 0.5);
 }
 
-.login-form {
-  margin-bottom: 20px;
+.tab.active {
+  background-color: var(--bg-elevated);
+  color: var(--text-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #333;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-color: #007bff;
+.login-form .form-group {
+  margin-bottom: 1.25rem;
 }
 
 .submit-btn {
   width: 100%;
-  padding: 12px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
 }
 
 .form-note {
-  margin-top: 12px;
-  font-size: 12px;
-  color: #666;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
   text-align: center;
-}
-
-.dev-hint {
-  margin-top: 12px;
-  padding: 8px;
-  background: #e3f2fd;
-  border-radius: 4px;
-  text-align: center;
-}
-
-.dev-hint small {
-  color: #1976d2;
+  margin-top: 1rem;
 }
 
 .error-message {
-  background: #f8d7da;
-  color: #721c24;
-  padding: 12px;
-  border-radius: 6px;
-  margin-bottom: 20px;
-  font-size: 14px;
+  background-color: rgba(var(--danger-color), 0.1);
+  color: var(--danger-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 1.5rem;
   text-align: center;
+  font-weight: 500;
+}
+
+.quick-login-section {
+  margin-top: 1.5rem;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-color-secondary);
+  font-size: 0.8rem;
+  margin: 1.5rem 0;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+.divider:not(:empty)::before {
+  margin-right: .5em;
+}
+.divider:not(:empty)::after {
+  margin-left: .5em;
+}
+
+.quick-login-title {
+  text-align: center;
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.quick-login-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.btn.btn-sm {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8rem;
+  background: var(--bg-color-alt);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+.btn.btn-sm:hover {
+  background: var(--bg-elevated);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .login-footer {
   text-align: center;
+  margin-top: 1.5rem;
 }
 
 .forgot-link {
-  color: #007bff;
+  color: var(--text-color-secondary);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 0.9rem;
 }
 
 .forgot-link:hover {
+  color: var(--primary-color);
   text-decoration: underline;
 }
 
-@media (max-width: 480px) {
-  .login-container {
-    padding: 24px;
-    margin: 16px;
-  }
-  
-  .login-header h1 {
-    font-size: 20px;
-  }
-  
-  .tab {
-    padding: 10px 12px;
-    font-size: 12px;
-  }
-  
-  .quick-login-section {
-    padding: 16px;
-  }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease-in-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style> 

@@ -1,7 +1,7 @@
 <template>
   <div class="forgot-password-page">
     <div class="forgot-password-container">
-      <div class="forgot-password-card">
+      <div class="forgot-password-card frosted-glass">
         <div class="card-header">
           <h1>找回密码</h1>
           <p>请按照以下步骤重置您的密码</p>
@@ -9,204 +9,175 @@
 
         <!-- 步骤指示器 -->
         <div class="steps-indicator">
-          <div 
+          <div
             v-for="(step, index) in steps"
             :key="index"
-            :class="['step-item', {
-              active: currentStep === index + 1,
-              completed: currentStep > index + 1
-            }]"
+            class="step-item-wrapper"
           >
-            <div class="step-number">{{ index + 1 }}</div>
+            <div
+              :class="['step-item', {
+                active: currentStep === index + 1,
+                completed: currentStep > index + 1
+              }]"
+            >
+              <div class="step-icon">
+                <i v-if="currentStep > index + 1" class="fas fa-check"></i>
+                <span v-else>{{ index + 1 }}</span>
+              </div>
+            </div>
             <div class="step-label">{{ step.label }}</div>
+            <div v-if="index < steps.length - 1" class="step-connector"></div>
           </div>
         </div>
 
         <div class="card-content">
-          <!-- 步骤1：验证学号 -->
-          <div v-if="currentStep === 1" class="step-content">
-            <h3>验证学号</h3>
-            <p class="step-desc">请输入您的学号，我们将验证您的身份</p>
+          <transition name="fade" mode="out-in">
+            <div :key="currentStep">
+              <!-- 步骤1：验证学号 -->
+              <div v-if="currentStep === 1" class="step-content">
+                <form @submit.prevent="verifyStudentId" class="form">
+                  <div class="form-group">
+                    <label for="studentId">学号</label>
+                    <input
+                      id="studentId"
+                      v-model="formData.studentId"
+                      type="text"
+                      placeholder="请输入您的学号"
+                      class="form-control"
+                      :class="{ 'is-invalid': errors.studentId }"
+                      :disabled="loading"
+                    />
+                     <div v-if="errors.studentId" class="error-text">{{ errors.studentId }}</div>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+                      {{ loading ? '验证中...' : '下一步' }}
+                    </button>
+                    <router-link to="/login" class="btn btn-link">
+                      返回登录
+                    </router-link>
+                  </div>
+                </form>
+              </div>
 
-            <form @submit.prevent="verifyStudentId" class="form">
-              <div class="form-group">
-                <label for="studentId">学号</label>
-                <input
-                  id="studentId"
-                  v-model="formData.studentId"
-                  type="text"
-                  placeholder="请输入学号"
-                  :class="['form-control', { error: errors.studentId }]"
-                  :disabled="loading"
-                />
-                <div v-if="errors.studentId" class="error-message">
-                  {{ errors.studentId }}
+              <!-- 步骤2：安全验证 -->
+              <div v-if="currentStep === 2" class="step-content">
+                 <div class="user-info-preview">
+                  <div class="user-avatar">
+                    <span>{{ userInfo?.nickname?.charAt(0) || 'U' }}</span>
+                  </div>
+                  <div class="user-details">
+                    <div class="user-name">{{ userInfo?.name }}</div>
+                    <div class="user-id">学号：{{ userInfo?.studentId }}</div>
+                  </div>
                 </div>
+                <form @submit.prevent="verifySecurityAnswer" class="form">
+                  <div class="form-group">
+                    <label>安全问题</label>
+                    <div class="security-question-display">
+                      {{ securityQuestion }}
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="securityAnswer">您的答案</label>
+                    <input
+                      id="securityAnswer"
+                      v-model="formData.securityAnswer"
+                      type="text"
+                      placeholder="请输入安全问题答案"
+                      class="form-control"
+                      :class="{ 'is-invalid': errors.securityAnswer }"
+                      :disabled="loading"
+                    />
+                    <div v-if="errors.securityAnswer" class="error-text">{{ errors.securityAnswer }}</div>
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
+                      {{ loading ? '验证中...' : '下一步' }}
+                    </button>
+                    <button type="button" @click="goToPreviousStep" class="btn btn-link">
+                      上一步
+                    </button>
+                  </div>
+                </form>
               </div>
 
-              <div class="form-actions">
-                <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
-                  {{ loading ? '验证中...' : '下一步' }}
-                </button>
-                
-                <router-link to="/login" class="btn btn-link">
-                  返回登录
-                </router-link>
+              <!-- 步骤3：重置密码 -->
+              <div v-if="currentStep === 3" class="step-content">
+                <form @submit.prevent="resetPassword" class="form">
+                  <div class="form-group">
+                    <label for="newPassword">新密码</label>
+                    <input
+                      id="newPassword"
+                      v-model="formData.newPassword"
+                      type="password"
+                      placeholder="至少6位，包含字母和数字"
+                      class="form-control"
+                      :class="{ 'is-invalid': errors.newPassword }"
+                      :disabled="loading"
+                    />
+                    <div class="password-tips">
+                      <ul>
+                        <li :class="{ valid: passwordValidation.length }"><i class="fas fa-check-circle"></i> 至少6位字符</li>
+                        <li :class="{ valid: passwordValidation.hasLetter }"><i class="fas fa-check-circle"></i> 包含字母</li>
+                        <li :class="{ valid: passwordValidation.hasNumber }"><i class="fas fa-check-circle"></i> 包含数字</li>
+                      </ul>
+                    </div>
+                     <div v-if="errors.newPassword" class="error-text">{{ errors.newPassword }}</div>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="confirmPassword">确认密码</label>
+                    <input
+                      id="confirmPassword"
+                      v-model="formData.confirmPassword"
+                      type="password"
+                      placeholder="请再次输入新密码"
+                      class="form-control"
+                      :class="{ 'is-invalid': errors.confirmPassword }"
+                      :disabled="loading"
+                    />
+                    <div v-if="errors.confirmPassword" class="error-text">{{ errors.confirmPassword }}</div>
+                  </div>
+
+                  <div class="form-actions">
+                    <button type="submit" :disabled="loading || !isPasswordValid" class="btn btn-primary btn-block">
+                      {{ loading ? '重置中...' : '完成重置' }}
+                    </button>
+                    <button type="button" @click="goToPreviousStep" class="btn btn-link">
+                      上一步
+                    </button>
+                  </div>
+                </form>
               </div>
 
-              <div class="activation-hint">
-                <p>还没有激活账号？</p>
-                <router-link to="/login" class="activation-link">
-                  点击这里激活账号并设置密码
-                </router-link>
-              </div>
-            </form>
-          </div>
-
-          <!-- 步骤2：安全验证 -->
-          <div v-if="currentStep === 2" class="step-content">
-            <h3>安全验证</h3>
-            <p class="step-desc">请回答您设置的安全问题来验证身份</p>
-
-            <div class="user-info-preview">
-              <div class="user-avatar">
-                {{ userInfo?.nickname?.charAt(0) || 'U' }}
-              </div>
-              <div class="user-details">
-                <div class="user-name">{{ userInfo?.name }}</div>
-                <div class="user-id">学号：{{ userInfo?.studentId }}</div>
+              <!-- 步骤4：完成 -->
+              <div v-if="currentStep === 4" class="step-content">
+                <div class="success-content">
+                  <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                  </div>
+                  <h3>密码重置成功</h3>
+                  <p>您的密码已成功重置，现在可以使用新密码登录了。</p>
+                  <div class="form-actions">
+                    <router-link to="/login" class="btn btn-primary btn-block">
+                      立即登录
+                    </router-link>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <form @submit.prevent="verifySecurityAnswer" class="form">
-              <div class="form-group">
-                <label>安全问题</label>
-                <div class="security-question">
-                  {{ securityQuestion }}
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="securityAnswer">您的答案</label>
-                <input
-                  id="securityAnswer"
-                  v-model="formData.securityAnswer"
-                  type="text"
-                  placeholder="请输入安全问题答案"
-                  :class="['form-control', { error: errors.securityAnswer }]"
-                  :disabled="loading"
-                />
-                <div v-if="errors.securityAnswer" class="error-message">
-                  {{ errors.securityAnswer }}
-                </div>
-              </div>
-
-              <div class="form-actions">
-                <button type="submit" :disabled="loading" class="btn btn-primary btn-block">
-                  {{ loading ? '验证中...' : '下一步' }}
-                </button>
-                
-                <button type="button" @click="goToPreviousStep" class="btn btn-outline-secondary">
-                  上一步
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <!-- 步骤3：重置密码 -->
-          <div v-if="currentStep === 3" class="step-content">
-            <h3>重置密码</h3>
-            <p class="step-desc">请设置您的新密码</p>
-
-            <form @submit.prevent="resetPassword" class="form">
-              <div class="form-group">
-                <label for="newPassword">新密码</label>
-                <input
-                  id="newPassword"
-                  v-model="formData.newPassword"
-                  type="password"
-                  placeholder="请输入新密码"
-                  :class="['form-control', { error: errors.newPassword }]"
-                  :disabled="loading"
-                />
-                <div v-if="errors.newPassword" class="error-message">
-                  {{ errors.newPassword }}
-                </div>
-                <div class="password-tips">
-                  <p>密码要求：</p>
-                  <ul>
-                    <li :class="{ valid: passwordValidation.length }">至少6位字符</li>
-                    <li :class="{ valid: passwordValidation.hasNumber }">包含数字</li>
-                    <li :class="{ valid: passwordValidation.hasLetter }">包含字母</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label for="confirmPassword">确认密码</label>
-                <input
-                  id="confirmPassword"
-                  v-model="formData.confirmPassword"
-                  type="password"
-                  placeholder="请再次输入新密码"
-                  :class="['form-control', { error: errors.confirmPassword }]"
-                  :disabled="loading"
-                />
-                <div v-if="errors.confirmPassword" class="error-message">
-                  {{ errors.confirmPassword }}
-                </div>
-              </div>
-
-              <div class="form-actions">
-                <button type="submit" :disabled="loading || !isPasswordValid" class="btn btn-primary btn-block">
-                  {{ loading ? '重置中...' : '完成重置' }}
-                </button>
-                
-                <button type="button" @click="goToPreviousStep" class="btn btn-outline-secondary">
-                  上一步
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <!-- 步骤4：完成 -->
-          <div v-if="currentStep === 4" class="step-content">
-            <div class="success-content">
-              <div class="success-icon">✅</div>
-              <h3>密码重置成功</h3>
-              <p>您的密码已成功重置，现在可以使用新密码登录了。</p>
-
-              <div class="form-actions">
-                <router-link to="/login" class="btn btn-primary btn-block">
-                  立即登录
-                </router-link>
-                
-                <router-link to="/" class="btn btn-outline-primary">
-                  返回首页
-                </router-link>
-              </div>
-            </div>
-          </div>
+          </transition>
         </div>
       </div>
 
       <!-- 帮助提示 -->
-      <div class="help-section">
-        <h4>遇到问题？</h4>
-        <div class="help-items">
-          <div class="help-item">
-            <h5>忘记学号？</h5>
-            <p>请联系学校管理员或查看学生证</p>
-          </div>
-          <div class="help-item">
-            <h5>忘记安全问题答案？</h5>
-            <p>请联系系统管理员进行人工验证</p>
-          </div>
-          <div class="help-item">
-            <h5>其他问题？</h5>
-            <p>请发送邮件至 support@example.com</p>
-          </div>
-        </div>
+      <div class="help-section frosted-glass">
+        <h4>需要帮助？</h4>
+        <p>如果无法通过以上步骤找回密码，请联系管理员。</p>
+        <a href="mailto:support@example.com" class="btn btn-outline">联系管理员</a>
       </div>
     </div>
   </div>
@@ -435,439 +406,279 @@ function goToPreviousStep() {
 
 <style scoped>
 .forgot-password-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 20px;
+  align-items: flex-start;
+  min-height: calc(100vh - 64px);
+  padding: 2rem 1rem;
 }
 
 .forgot-password-container {
   width: 100%;
   max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .forgot-password-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  margin-bottom: 24px;
+  padding: 2.5rem;
+  border-radius: 1.5rem;
 }
 
 .card-header {
-  background: linear-gradient(135deg, #007bff, #0056b3);
-  color: white;
-  padding: 32px 24px;
   text-align: center;
+  margin-bottom: 2rem;
 }
-
 .card-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
-
 .card-header p {
-  margin: 0;
-  opacity: 0.9;
-  font-size: 16px;
+  color: var(--text-color-secondary);
 }
 
 .steps-indicator {
   display: flex;
-  justify-content: center;
-  padding: 24px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #eee;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2.5rem;
+  position: relative;
 }
-
-.step-item {
+.step-item-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
   position: relative;
   flex: 1;
-  max-width: 120px;
 }
-
-.step-item:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 16px;
-  right: -50%;
-  width: 100%;
-  height: 2px;
-  background: #ddd;
-  z-index: 1;
-}
-
-.step-item.completed:not(:last-child)::after {
-  background: #28a745;
-}
-
-.step-number {
-  width: 32px;
-  height: 32px;
+.step-item {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: #ddd;
-  color: #666;
   display: flex;
-  align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-  margin-bottom: 8px;
-  position: relative;
-  z-index: 2;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+  background-color: var(--bg-color-alt);
+  border: 2px solid var(--border-color);
+  color: var(--text-color-secondary);
 }
-
-.step-item.active .step-number {
-  background: #007bff;
+.step-icon {
+  font-size: 1.2rem;
+}
+.step-item.active {
+  background-color: var(--primary-color-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+.step-item.completed {
+  background-color: var(--success-color);
+  border-color: var(--success-color);
   color: white;
 }
-
-.step-item.completed .step-number {
-  background: #28a745;
-  color: white;
-}
-
 .step-label {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
-}
-
-.step-item.active .step-label {
-  color: #007bff;
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
   font-weight: 500;
 }
-
-.card-content {
-  padding: 32px 24px;
-}
-
-.step-content h3 {
-  margin: 0 0 8px 0;
-  color: #333;
-  font-size: 20px;
-}
-
-.step-desc {
-  margin: 0 0 24px 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.user-info-preview {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  margin-bottom: 24px;
-}
-
-.user-avatar {
-  width: 48px;
-  height: 48px;
-  background: #007bff;
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 18px;
-}
-
-.user-name {
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.user-id {
-  font-size: 12px;
-  color: #666;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  color: #333;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.form-control {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
-.form-control.error {
-  border-color: #dc3545;
-}
-
-.form-control:disabled {
-  background: #f8f9fa;
-  cursor: not-allowed;
-}
-
-.security-question {
-  padding: 12px 16px;
-  background: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  color: #333;
-  font-size: 14px;
-}
-
-.error-message {
-  color: #dc3545;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.password-tips {
-  margin-top: 8px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  font-size: 12px;
-}
-
-.password-tips p {
-  margin: 0 0 8px 0;
-  color: #666;
-  font-weight: 500;
-}
-
-.password-tips ul {
-  margin: 0;
-  padding-left: 16px;
-  list-style: none;
-}
-
-.password-tips li {
-  margin-bottom: 4px;
-  color: #dc3545;
-  position: relative;
-}
-
-.password-tips li::before {
-  content: '✗';
+.step-item-wrapper:not(:last-child) .step-connector {
   position: absolute;
-  left: -16px;
-  font-weight: bold;
+  top: 20px;
+  left: 50%;
+  transform: translateY(-50%);
+  height: 2px;
+  background: var(--border-color);
+  width: 100%;
+  z-index: -1;
 }
 
-.password-tips li.valid {
-  color: #28a745;
+.step-item.completed ~ .step-connector {
+    background: var(--success-color);
 }
 
-.password-tips li.valid::before {
-  content: '✓';
+.step-content {
+  margin-top: 1rem;
+  text-align: left;
+}
+.step-content h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+.step-content .step-desc {
+    color: var(--text-color-secondary);
+    text-align: center;
+    margin-bottom: 2rem;
 }
 
 .form-actions {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
+  gap: 1rem;
+  margin-top: 2rem;
 }
-
-.btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-  text-decoration: none;
-  text-align: center;
-  display: inline-block;
-}
-
 .btn-block {
   width: 100%;
+  padding: 0.8rem;
 }
-
-.btn-primary {
-  background: #007bff;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-outline-primary {
-  background: transparent;
-  color: #007bff;
-  border: 1px solid #007bff;
-}
-
-.btn-outline-primary:hover:not(:disabled) {
-  background: #007bff;
-  color: white;
-}
-
-.btn-outline-secondary {
-  background: transparent;
-  color: #6c757d;
-  border: 1px solid #6c757d;
-}
-
-.btn-outline-secondary:hover:not(:disabled) {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-link {
-  background: transparent;
-  color: #007bff;
-  border: none;
-  text-decoration: underline;
-}
-
-.btn-link:hover {
-  color: #0056b3;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.activation-hint {
-  text-align: center;
-  padding: 16px 0;
-  border-top: 1px solid #eee;
-  margin-top: 16px;
-}
-
-.activation-hint p {
-  margin: 0 0 8px 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.activation-link {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.activation-link:hover {
-  color: #0056b3;
-  text-decoration: underline;
+.error-text {
+  color: var(--danger-color);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
 }
 
 .success-content {
   text-align: center;
-  padding: 20px 0;
+  padding: 2rem 0;
 }
-
 .success-icon {
-  font-size: 64px;
-  margin-bottom: 16px;
+  font-size: 4rem;
+  color: var(--success-color);
+  margin-bottom: 1.5rem;
 }
-
 .success-content h3 {
-  color: #28a745;
-  margin-bottom: 16px;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
 }
-
 .success-content p {
-  color: #666;
-  margin-bottom: 24px;
+  color: var(--text-color-secondary);
+  margin-bottom: 2rem;
 }
 
 .help-section {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  text-align: center;
+  border-radius: 1rem;
 }
 
 .help-section h4 {
-  margin: 0 0 16px 0;
-  color: #333;
-  font-size: 16px;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
 }
 
-.help-items {
-  display: grid;
-  gap: 16px;
+.help-section p {
+  color: var(--text-color-secondary);
+  margin-bottom: 1rem;
 }
 
-.help-item h5 {
-  margin: 0 0 4px 0;
-  color: #333;
-  font-size: 14px;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
-.help-item p {
-  margin: 0;
-  color: #666;
+/* Retaining some specific logic from original component's CSS */
+.password-tips {
   font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+}
+.password-tips ul {
+  list-style: none;
+  padding-left: 0;
+}
+.password-tips li {
+  transition: color 0.2s;
+}
+.password-tips li.valid {
+  color: var(--success-color);
+  text-decoration: line-through;
+}
+.security-question {
+  background: #f0f0f0;
+  padding: 10px;
+  border-radius: 4px;
+  font-style: italic;
+}
+.user-info-preview {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-color-alt);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+.user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.5rem;
+  margin-right: 1rem;
+  flex-shrink: 0;
+}
+.user-details {
+  min-width: 0;
+}
+.user-name {
+  font-weight: 600;
+  color: var(--text-color);
+}
+.user-id {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
 }
 
-@media (max-width: 768px) {
-  .forgot-password-page {
-    padding: 16px;
-  }
-  
-  .card-header {
-    padding: 24px 16px;
-  }
-  
-  .card-header h1 {
-    font-size: 24px;
-  }
-  
-  .steps-indicator {
-    padding: 16px;
-  }
-  
-  .step-item {
-    max-width: 80px;
-  }
-  
-  .step-number {
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-  }
-  
-  .step-label {
-    font-size: 10px;
-  }
-  
-  .card-content {
-    padding: 24px 16px;
-  }
-  
-  .help-items {
-    grid-template-columns: 1fr;
-  }
+.security-question-display {
+  padding: 1rem;
+  background-color: var(--bg-color-alt);
+  border-radius: 8px;
+  font-style: italic;
+  color: var(--text-color-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.password-tips {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
+  margin-top: 0.75rem;
+}
+.password-tips ul {
+  list-style: none;
+  padding-left: 0;
+  display: flex;
+  gap: 1rem;
+}
+.password-tips li {
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.password-tips li .fa-check-circle {
+    display: none;
+}
+.password-tips li.valid {
+  color: var(--success-color);
+}
+.password-tips li.valid .fa-check-circle {
+    display: inline-block;
+}
+
+.is-invalid {
+    border-color: var(--danger-color) !important;
+}
+
+/* Remove old specific styles that are now handled by global styles or new scoped styles */
+.security-question,
+.form-control.error,
+.password-tips p,
+.activation-hint,
+.user-avatar {
+  /* These are now replaced or handled differently */
 }
 </style> 
