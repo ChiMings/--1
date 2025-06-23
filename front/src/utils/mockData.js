@@ -394,7 +394,7 @@ export const mockStats = {
   totalProducts: 456,
   totalTransactions: 328,
   activeUsers: 89,
-  todayRegistrations: 12,
+  todayVerifiedUsers: 8,
   todayProducts: 8,
   todayTransactions: 5,
   userGrowth: [
