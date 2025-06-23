@@ -333,12 +333,19 @@ onMounted(() => {
 
 .hero-section {
   position: relative;
-  padding: 6rem 1rem;
   text-align: center;
-  border-radius: 1.5rem;
-  overflow: hidden;
   color: white;
+  padding: 2rem 0;
+  background-size: cover;
+  background-position: center;
+  border-radius: 16px;
+  overflow: hidden;
   margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: auto;
 }
 
 .hero-section::before {

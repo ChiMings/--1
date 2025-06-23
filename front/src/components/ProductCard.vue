@@ -10,7 +10,11 @@
       <div class="status-badge" :class="statusClass">
         {{ product.status }}
       </div>
-      <div class="favorite-button" @click.stop="onFavoriteClick">
+      <div 
+        v-if="showFavoriteButton"
+        class="favorite-button" 
+        @click.stop="onFavoriteClick"
+      >
          <i :class="product.isFavorite ? 'fas fa-heart' : 'far fa-heart'"></i>
       </div>
     </div>
@@ -49,6 +53,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  showFavoriteButton: {
+    type: Boolean,
+    default: true,
+  }
 });
 
 const emit = defineEmits(['edit', 'delete', 'mark-sold', 'favorite', 'activation-tip']);
