@@ -3,7 +3,7 @@
     <aside class="sidebar frosted-glass">
       <h2 class="sidebar-title">个人中心</h2>
       <nav class="sidebar-nav">
-        <router-link to="/user/profile" class="nav-link">
+        <router-link to="/user/profile" class="nav-link" v-if="isVerifiedUser">
           <i class="fas fa-user-edit fa-fw"></i>
           <span>资料编辑</span>
         </router-link>
@@ -11,11 +11,11 @@
           <i class="fas fa-box-open fa-fw"></i>
           <span>我的发布</span>
         </router-link>
-        <router-link to="/user/favorites" class="nav-link">
+        <router-link to="/user/favorites" class="nav-link" v-if="isVerifiedUser">
           <i class="fas fa-heart fa-fw"></i>
           <span>我的收藏</span>
         </router-link>
-        <router-link to="/user/messages" class="nav-link">
+        <router-link to="/user/messages" class="nav-link" v-if="isVerifiedUser">
           <i class="fas fa-envelope fa-fw"></i>
           <span>我的私信</span>
         </router-link>
@@ -23,7 +23,7 @@
           <i class="fas fa-bell fa-fw"></i>
           <span>我的通知</span>
         </router-link>
-        <router-link to="/user/reports" class="nav-link">
+        <router-link to="/user/reports" class="nav-link" v-if="isVerifiedUser">
           <i class="fas fa-flag fa-fw"></i>
           <span>我的举报</span>
         </router-link>
@@ -38,6 +38,19 @@
     </div>
   </div>
 </template>
+
+<script setup>
+import { computed } from 'vue';
+import { useUserStore } from '@/store/user';
+
+const userStore = useUserStore();
+
+const isVerifiedUser = computed(() => {
+  if (!userStore.isLoggedIn) return false;
+  const role = userStore.userInfo?.role;
+  return role === '认证用户' || role === '管理员' || role === '超级管理员';
+});
+</script>
 
 <style scoped>
 .user-center-layout {

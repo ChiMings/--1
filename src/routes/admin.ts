@@ -3,6 +3,7 @@ import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
 import { authenticateToken, requireAdmin } from '../middleware/auth';
 import { sendTradeNotification, sendRoleChangeNotification, sendAccountStatusNotification, NotificationType, sendSystemAnnouncementNotification } from '../utils/notificationService';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -430,43 +431,63 @@ router.get('/users', requireAdmin, async (req, res) => {
 });
 
 // 更新用户角色
-router.post('/users/:userId/role/update', requireAdmin, async (req, res) => {
+router.post('/users/:id/role', requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const { role } = req.body;
+    const adminId = req.user!.id;
 
-    if (!role || !['未认证用户', '认证用户', '管理员', '超级管理员'].includes(role)) {
-      return res.status(400).json(badRequest('无效的用户角色'));
+    if (!role || !['未认证用户', '认证用户', '管理员'].includes(role)) {
+      return res.status(400).json(badRequest('无效的角色'));
     }
 
-    // 检查用户是否存在
-    const user = await prisma.user.findUnique({
-      where: { id: userId }
+    if (id === adminId) {
+      return res.status(400).json(badRequest('不能修改自己的角色'));
+    }
+
+    const userToUpdate = await prisma.user.findUnique({
+      where: { id },
     });
 
-    if (!user || user.deleted) {
+    if (!userToUpdate) {
       return res.status(404).json(error('用户不存在'));
     }
 
-    // 更新用户角色
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { role }
-    });
+    const oldRole = userToUpdate.role;
+    let updatedUser;
 
-    // 发送角色变更通知
-    if (user.role !== role) {
-      await sendRoleChangeNotification(userId, role);
+    // 核心逻辑：当从未认证用户变为认证用户时，设置默认密码
+    if (oldRole === '未认证用户' && role === '认证用户') {
+      // 使用学号作为默认密码
+      const defaultPassword = userToUpdate.studentId;
+      if (!defaultPassword) {
+        // 防止学号为空的情况
+        return res.status(500).json(error('无法设置默认密码：用户学号不存在'));
+      }
+      
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(defaultPassword, salt);
+
+      // 更新角色和密码
+      updatedUser = await prisma.user.update({
+        where: { id },
+        data: { role: role, password: hashedPassword },
+      });
+
+    } else {
+      // 对于其他角色变更，只更新角色
+      updatedUser = await prisma.user.update({
+        where: { id },
+        data: { role },
+      });
     }
 
-    return res.json(success('用户角色更新成功', {
-      id: updatedUser.id,
-      studentId: updatedUser.studentId,
-      name: updatedUser.name,
-      role: updatedUser.role
-    }));
+    // 在数据库操作成功后发送通知
+    await sendRoleChangeNotification(updatedUser.id, role);
+    
+    return res.json(success(`用户 ${userToUpdate.nickname || userToUpdate.name} 的角色已更新为 ${role}`));
   } catch (err) {
-    console.error('Update user role error:', err);
+    console.error('更新用户角色失败:', err);
     return res.status(500).json(error('更新用户角色失败'));
   }
 });

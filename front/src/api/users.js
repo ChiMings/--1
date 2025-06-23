@@ -305,28 +305,21 @@ export function getAdminUsersList(params = {}) {
  */
 export function updateUserRole(userId, role) {
   if (config.useMockData) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       setTimeout(() => {
-        // 模拟角色更新
         const userIndex = mockUsers.findIndex(u => u.id === parseInt(userId));
         if (userIndex !== -1) {
           mockUsers[userIndex].role = role;
-          resolve({ 
-            data: { 
-              success: true, 
-              message: '用户角色更新成功',
-              user: mockUsers[userIndex]
-            } 
-          });
+          resolve({ data: mockUsers[userIndex] });
         } else {
-          reject(new Error('用户不存在'));
+          resolve({ data: null, message: '用户不存在' }); // 返回错误信息
         }
-      }, 400);
+      }, 300);
     });
   }
   
   return request({
-    url: `/admin/users/${userId}/role/update`,
+    url: `/admin/users/${userId}/role`, // 修正：移除末尾的 /update
     method: 'post',
     data: { role },
   });

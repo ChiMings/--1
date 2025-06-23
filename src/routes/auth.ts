@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs'; // 引入 bcrypt
 import { success, error, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
 import { generateToken } from '../middleware/auth';
@@ -41,8 +42,13 @@ router.post('/login', async (req, res) => {
 
     // 如果是认证登录，检查密码
     if (password) {
-      // TODO: 实际项目中应该使用bcrypt比较加密密码
-      if (user.password !== password) {
+      // 检查用户是否有密码
+      if (!user.password) {
+        return res.status(401).json(error('该账号尚未设置密码，请联系管理员或通过激活流程设置'));
+      }
+      // 使用 bcrypt.compare 验证密码
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
         return res.status(401).json(error('密码错误'));
       }
     } else if (name) {
@@ -126,11 +132,15 @@ router.post('/activate', async (req, res) => {
       return res.status(400).json(error('激活码无效或已过期，请检查激活码是否正确'));
     }
 
+    // 哈希密码
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     // 更新用户信息（激活账号）
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: {
-        password: password, // TODO: 实际项目中应该使用bcrypt加密密码
+        password: hashedPassword, // 存入哈希后的密码
         nickname: nickname,
         role: '认证用户',
         activationCode: null // 清除激活码

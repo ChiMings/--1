@@ -20,7 +20,7 @@
           <i class="fas fa-bullhorn"></i>
           <span class="nav-text">公告</span>
         </router-link>
-        <router-link v-if="userStore.token" to="/user/product/create" class="nav-link cta-link" title="发布商品">
+        <router-link v-if="canPostProduct" to="/user/product/create" class="nav-link cta-link" title="发布商品">
           <i class="fas fa-plus-circle"></i>
           <span class="nav-text">发布商品</span>
         </router-link>
@@ -59,33 +59,44 @@
                   </div>
                 </div>
 
-                <div class="dropdown-section">
-                  <router-link to="/user/profile" class="dropdown-item">
-                    <i class="fas fa-user-circle item-icon"></i>
-                    个人主页
-                  </router-link>
-                   <router-link to="/user/products" class="dropdown-item">
-                    <i class="fas fa-box-open item-icon"></i>
-                    我的发布
-                  </router-link>
-                  <router-link to="/user/favorites" class="dropdown-item">
-                    <i class="fas fa-heart item-icon"></i>
-                    我的收藏
+                <!-- 未认证用户提示 -->
+                <div v-if="!canPostProduct && userStore.isLoggedIn" class="activation-prompt">
+                  <p>激活账号以使用全部功能</p>
+                  <router-link to="/login?tab=activate" class="btn btn-warning btn-sm">
+                    <i class="fas fa-check-circle"></i> 立即激活
                   </router-link>
                 </div>
 
-                <div class="dropdown-section">
-                   <router-link to="/user/messages" class="dropdown-item">
-                    <i class="fas fa-envelope item-icon"></i>
-                    私信消息
-                    <span v-if="unreadMessages > 0" class="badge">{{ unreadMessages }}</span>
-                  </router-link>
-                  <router-link to="/user/notifications" class="dropdown-item">
-                    <i class="fas fa-bell item-icon"></i>
-                    系统通知
-                    <span v-if="unreadNotifications > 0" class="badge">{{ unreadNotifications }}</span>
-                  </router-link>
-                </div>
+                <!-- 认证用户的功能菜单 -->
+                <template v-if="canPostProduct">
+                  <div class="dropdown-section">
+                    <router-link to="/user/profile" class="dropdown-item">
+                      <i class="fas fa-user-circle item-icon"></i>
+                      个人主页
+                    </router-link>
+                    <router-link to="/user/products" class="dropdown-item">
+                      <i class="fas fa-box-open item-icon"></i>
+                      我的发布
+                    </router-link>
+                    <router-link to="/user/favorites" class="dropdown-item">
+                      <i class="fas fa-heart item-icon"></i>
+                      我的收藏
+                    </router-link>
+                  </div>
+
+                  <div class="dropdown-section">
+                    <router-link to="/user/messages" class="dropdown-item">
+                      <i class="fas fa-envelope item-icon"></i>
+                      私信消息
+                      <span v-if="unreadMessages > 0" class="badge">{{ unreadMessages }}</span>
+                    </router-link>
+                    <router-link to="/user/notifications" class="dropdown-item">
+                      <i class="fas fa-bell item-icon"></i>
+                      系统通知
+                      <span v-if="unreadNotifications > 0" class="badge">{{ unreadNotifications }}</span>
+                    </router-link>
+                  </div>
+                </template>
 
                 <router-link
                   v-if="isAdmin"
@@ -129,7 +140,7 @@
         <router-link to="/notices" class="mobile-nav-link" @click="closeMobileMenu">
           <i class="fas fa-bullhorn"></i> 公告
         </router-link>
-        <router-link v-if="userStore.token" to="/user/product/create" class="mobile-nav-link" @click="closeMobileMenu">
+        <router-link v-if="canPostProduct" to="/user/product/create" class="mobile-nav-link" @click="closeMobileMenu">
           <i class="fas fa-plus-circle"></i> 发布商品
         </router-link>
 
@@ -187,6 +198,12 @@ const userAvatar = computed(() => {
 const isAdmin = computed(() => {
   const role = userStore.userInfo?.role;
   return role === '管理员' || role === '超级管理员';
+});
+
+const canPostProduct = computed(() => {
+  if (!userStore.isLoggedIn) return false;
+  const role = userStore.userInfo?.role;
+  return role === '认证用户' || role === '管理员' || role === '超级管理员';
 });
 
 // 方法

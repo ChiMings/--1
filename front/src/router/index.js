@@ -187,6 +187,13 @@ router.beforeEach((to, from, next) => {
     return;
   }
   
+  // 检查未认证用户是否试图访问个人中心
+  if (to.path.startsWith('/user') && userStore.userInfo?.role === '未认证用户') {
+    // 未认证用户重定向到登录页的激活标签
+    next({ path: '/login', query: { tab: 'activate' } });
+    return;
+  }
+  
   next();
 });
 
