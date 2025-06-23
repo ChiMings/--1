@@ -41,6 +41,7 @@
       <div v-for="product in products" :key="product.id" class="product-management-card">
         <ProductCard
           :product="product"
+          :show-favorite-button="false"
           @click="handleEdit(product)"
         />
         <div class="card-actions">

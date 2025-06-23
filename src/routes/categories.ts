@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client'; // 引入Prisma
 import { success, error, notFound, badRequest } from '../utils/response';
 import { prisma } from '../utils/database';
 
@@ -11,21 +12,27 @@ router.get('/', async (req, res) => {
       where: { 
         deleted: false
       },
+      include: {
+        _count: {
+          select: { products: { where: { deleted: false } } }
+        }
+      },
       orderBy: {
-        createdAt: 'asc'
+        sortOrder: 'desc',
       }
     });
 
-    // 只使用Prisma schema中存在的字段
     const processedCategories = categories.map(category => ({
       id: category.id,
       name: category.name,
       description: category.description || '',
-      icon: '📁', // 固定图标
-      isActive: true,
-      isDefault: false,
-      sortOrder: 0,
-      productCount: 0
+      icon: category.icon, // 使用数据库中的真实图标
+      isActive: category.isActive,
+      isDefault: category.isDefault,
+      sortOrder: category.sortOrder,
+      productCount: category._count.products,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt
     }));
 
     return res.json(success('获取分类成功', processedCategories));
@@ -36,7 +43,7 @@ router.get('/', async (req, res) => {
 });
 
 // 创建分类（管理员功能）
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
     const { name, description, icon, isActive, sortOrder } = req.body;
 
@@ -46,24 +53,11 @@ router.post('/', async (req, res) => {
 
     // TODO: 验证管理员权限
     
-    // 检查分类名称是否已存在
-    const existingCategory = await prisma.category.findFirst({
-      where: { 
-        name: name.trim(),
-        deleted: false 
-      }
-    });
-
-    if (existingCategory) {
-      return res.status(409).json(badRequest('分类名称已存在'));
-    }
-
-    // 创建新分类
     const newCategory = await prisma.category.create({
       data: {
         name: name.trim(),
         description: description ? description.trim() : null,
-        icon: icon || '📁',
+        icon: icon || 'fas fa-folder', // 默认图标更新
         isActive: isActive !== undefined ? isActive : true,
         sortOrder: sortOrder || 0
       }
@@ -84,8 +78,12 @@ router.post('/', async (req, res) => {
 
     return res.status(201).json(success('分类创建成功', formattedCategory));
   } catch (err) {
-    console.error('Create category error:', err);
-    return res.status(500).json(error('创建失败'));
+    // 捕获唯一约束冲突错误
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json(badRequest('分类名称已存在'));
+    }
+    // 将其他错误传递给全局错误处理器
+    return next(err);
   }
 });
 
@@ -98,6 +96,11 @@ router.get('/:id', async (req, res) => {
       where: { 
         id,
         deleted: false 
+      },
+      include: {
+        _count: {
+          select: { products: { where: { deleted: false } } }
+        }
       }
     });
 
@@ -109,12 +112,13 @@ router.get('/:id', async (req, res) => {
       id: category.id,
       name: category.name,
       description: category.description || '',
-      icon: '📁',
-      isActive: true,
-      isDefault: false,
-      sortOrder: 0,
-      productCount: 0,
-      createdAt: category.createdAt
+      icon: category.icon, // 使用数据库中的真实图标
+      isActive: category.isActive,
+      isDefault: category.isDefault,
+      sortOrder: category.sortOrder,
+      productCount: category._count.products,
+      createdAt: category.createdAt,
+      updatedAt: category.updatedAt,
     };
 
     return res.json(success('获取分类详情成功', processedCategory));

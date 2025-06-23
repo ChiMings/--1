@@ -8,7 +8,7 @@
     <!-- 统计信息 -->
     <div class="stats-overview">
       <div class="stat-card">
-        <div class="stat-icon">📦</div>
+        <div class="stat-icon"><i class="fas fa-box-open"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ productStats.total }}</div>
           <div class="stat-label">总商品数</div>
@@ -16,7 +16,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">🛒</div>
+        <div class="stat-icon"><i class="fas fa-store-alt"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ productStats.active }}</div>
           <div class="stat-label">在售商品</div>
@@ -24,7 +24,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">✅</div>
+        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ productStats.sold }}</div>
           <div class="stat-label">已售商品</div>
@@ -32,7 +32,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">🚫</div>
+        <div class="stat-icon"><i class="fas fa-ban"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ productStats.removed }}</div>
           <div class="stat-label">已下架</div>
@@ -77,7 +77,7 @@
         </select>
         
         <button @click="refreshProducts" class="btn btn-outline">
-          🔄 刷新
+          <i class="fas fa-sync-alt"></i> 刷新
         </button>
       </div>
     </div>
@@ -89,7 +89,7 @@
       </div>
 
       <div v-else-if="filteredProducts.length === 0" class="empty-products">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon"><i class="fas fa-box-open"></i></div>
         <h3>未找到商品</h3>
         <p>尝试调整搜索条件或筛选器</p>
       </div>
@@ -134,7 +134,7 @@
               class="btn btn-sm btn-outline"
               title="查看详情"
             >
-              👁️ 查看
+              <i class="fas fa-eye"></i> 查看
             </button>
             
             <button 
@@ -143,7 +143,7 @@
               class="btn btn-sm btn-warning"
               title="编辑商品"
             >
-              ✏️ 编辑
+              <i class="fas fa-edit"></i> 编辑
             </button>
             
             <button 
@@ -152,7 +152,7 @@
               class="btn btn-sm btn-danger"
               title="下架商品"
             >
-              🗑️ 下架
+              <i class="fas fa-trash-alt"></i> 下架
             </button>
             
             <button 
@@ -161,7 +161,7 @@
               class="btn btn-sm btn-success"
               title="恢复商品"
             >
-              🔄 恢复
+              <i class="fas fa-undo-alt"></i> 恢复
             </button>
           </div>
         </div>
@@ -237,7 +237,7 @@
           </div>
           
           <div class="remove-warning">
-            <p>⚠️ 下架后商品将不再对用户可见，发布者会收到下架通知</p>
+            <p><i class="fas fa-exclamation-triangle"></i> 下架后商品将不再对用户可见，发布者会收到下架通知</p>
           </div>
         </div>
         

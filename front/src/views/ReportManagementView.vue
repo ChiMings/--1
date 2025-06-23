@@ -8,7 +8,7 @@
     <!-- 统计卡片 -->
     <div class="stats-overview">
       <div class="stat-card">
-        <div class="stat-icon">📢</div>
+        <div class="stat-icon"><i class="fas fa-bullhorn"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ reportStats.total }}</div>
           <div class="stat-label">总举报数</div>
@@ -16,7 +16,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">⏳</div>
+        <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ reportStats.pending }}</div>
           <div class="stat-label">待处理</div>
@@ -24,7 +24,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">✅</div>
+        <div class="stat-icon"><i class="fas fa-check-double"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ reportStats.resolved }}</div>
           <div class="stat-label">已处理</div>
@@ -32,7 +32,7 @@
       </div>
       
       <div class="stat-card">
-        <div class="stat-icon">🚫</div>
+        <div class="stat-icon"><i class="fas fa-gavel"></i></div>
         <div class="stat-content">
           <div class="stat-number">{{ reportStats.rejected }}</div>
           <div class="stat-label">已驳回</div>
@@ -58,7 +58,7 @@
         </select>
         
         <button @click="refreshReports" class="btn btn-outline">
-          🔄 刷新
+          <i class="fas fa-sync-alt"></i> 刷新
         </button>
       </div>
     </div>
@@ -70,7 +70,7 @@
       </div>
 
       <div v-else-if="filteredReports.length === 0" class="empty-reports">
-        <div class="empty-icon">📢</div>
+        <div class="empty-icon"><i class="fas fa-flag-checkered"></i></div>
         <h3>暂无举报</h3>
         <p>当前没有举报需要处理</p>
       </div>
@@ -142,7 +142,7 @@
               class="btn btn-sm btn-success"
               title="确认处理"
             >
-              ✅ 确认处理
+              <i class="fas fa-check"></i> 确认处理
             </button>
             
             <button 
@@ -151,7 +151,7 @@
               class="btn btn-sm btn-warning"
               title="驳回举报"
             >
-              ❌ 驳回
+              <i class="fas fa-times"></i> 驳回
             </button>
             
             <button 
@@ -159,7 +159,7 @@
               class="btn btn-sm btn-outline"
               title="查看详情"
             >
-              👁️ 详情
+              <i class="fas fa-search-plus"></i> 详情
             </button>
           </div>
         </div>
@@ -218,10 +218,10 @@
           
           <div class="process-warning">
             <p v-if="processAction === 'approved'">
-              ⚠️ 确认处理后，被举报内容将被相应处理，举报人会收到通知
+              <i class="fas fa-exclamation-triangle"></i> 确认处理后，被举报内容将被相应处理，举报人会收到通知
             </p>
             <p v-else>
-              ⚠️ 驳回后，此举报将标记为已驳回，举报人会收到通知
+              <i class="fas fa-exclamation-triangle"></i> 驳回后，此举报将标记为已驳回，举报人会收到通知
             </p>
           </div>
         </div>

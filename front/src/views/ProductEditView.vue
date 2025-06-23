@@ -249,28 +249,29 @@ const previewProduct = computed(() => {
 // 加载商品详情（编辑模式）
 async function loadProduct() {
   if (!isEditMode.value) return;
+
+  loading.value = true;
+  error.value = '';
   
   try {
-    loading.value = true;
     const response = await getProductDetail(route.params.id);
-    const product = response.data;
-    
-    // 检查是否是当前用户的商品
-    if (product.seller.id !== userStore.userInfo?.id) {
-      error.value = '您只能编辑自己发布的商品';
-      return;
+    if (response.data.status === 'success') {
+      const product = response.data.data;
+      
+      // 将获取到的数据填充到表单
+      form.name = product.name;
+      form.categoryId = product.categoryId;
+      form.price = product.price;
+      form.contact = product.contact;
+      form.description = product.description;
+      form.images = product.images.map(img => img.startsWith('http') ? img : `http://localhost:3000${img}`); // 假设后端返回相对路径
+
+    } else {
+      error.value = response.data.message || '加载商品信息失败';
     }
-    
-    // 填充表单
-    form.name = product.name;
-    form.categoryId = product.categoryId;
-    form.price = product.price;
-    form.contact = product.contact;
-    form.description = product.description;
-    form.images = [...(product.images || [])];
   } catch (err) {
     console.error('Failed to load product:', err);
-    error.value = '加载商品信息失败';
+    error.value = '加载商品信息失败，请稍后重试';
   } finally {
     loading.value = false;
   }
@@ -417,7 +418,9 @@ onMounted(() => {
   }
   
   loadCategories();
-  loadProduct();
+  if (isEditMode.value) {
+    loadProduct();
+  }
 });
 </script>
 
