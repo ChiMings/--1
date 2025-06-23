@@ -202,8 +202,8 @@ export async function seedDatabase() {
         {
           userId: firstUser.id,
           type: 'SYSTEM_NOTICE',
-          title: '欢迎使用校园二手交易平台',
-          content: '感谢您注册使用校园二手交易平台！请遵守平台规则，诚信交易。'
+          title: '欢迎使用校园闲置交易平台',
+          content: '感谢您注册使用校园闲置交易平台！请遵守平台规则，诚信交易。'
         },
         {
           userId: firstUser.id,

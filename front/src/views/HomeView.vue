@@ -4,7 +4,7 @@
     <div class="hero-section">
       <div class="hero-content">
         <h1>发现校园好物</h1>
-        <p>一个专为本校学生打造的、安全可靠的二手交易平台</p>
+        <p>一个专为本校学生打造的、安全可靠的闲置交易平台</p>
         <div class="search-box">
           <i class="fas fa-search search-icon"></i>
           <input
@@ -348,7 +348,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/首页bj.jpg') no-repeat center center;
+  background: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url('/首页bj.jpg') no-repeat center center;
   background-size: cover;
   z-index: -1;
 }

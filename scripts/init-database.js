@@ -54,7 +54,7 @@ async function initDatabase() {
     console.log('📢 创建系统公告...');
     const existingNotice = await prisma.notice.findFirst({
       where: { 
-        title: '欢迎使用校园二手交易平台',
+        title: '欢迎使用校园闲置交易平台',
         deleted: false
       }
     });
@@ -62,8 +62,8 @@ async function initDatabase() {
     if (!existingNotice) {
       await prisma.notice.create({
         data: {
-          title: '欢迎使用校园二手交易平台',
-          content: '欢迎大家使用校园二手交易平台！请遵守平台规则，诚信交易。',
+          title: '欢迎使用校园闲置交易平台',
+          content: '欢迎大家使用校园闲置交易平台！请遵守平台规则，诚信交易。',
           type: 'ANNOUNCEMENT',
           isActive: true
         }

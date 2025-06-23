@@ -203,8 +203,8 @@ export async function sendAccountStatusNotification(userId: string, status: stri
 export async function sendWelcomeNotification(userId: string, userName: string): Promise<void> {
   await createNotification({
     type: NotificationType.SYSTEM,
-    title: '欢迎使用校园二手交易平台！',
-    content: `${userName}，欢迎加入我们的校园二手交易平台！在这里您可以发布闲置物品、寻找需要的商品，享受安全便捷的校园交易体验。如有任何问题，请随时联系我们。`,
+    title: '欢迎使用校园闲置交易平台！',
+    content: `${userName}，欢迎加入我们的校园闲置交易平台！在这里您可以发布闲置物品、寻找需要的商品，享受安全便捷的校园交易体验。如有任何问题，请随时联系我们。`,
     userId,
     recipientType: 'user'
   });

@@ -54,7 +54,7 @@ app.get('/api/health', (req, res) => {
 // 根路径
 app.get('/', (req, res) => {
   res.json({
-    message: '校园二手交易平台 API',
+    message: '校园闲置交易平台 API',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     health: '/api/health'
