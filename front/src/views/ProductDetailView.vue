@@ -108,27 +108,16 @@
 
           <!-- 操作按钮 -->
           <div class="product-actions">
-            <!-- 收藏按钮 - 只有认证用户可以收藏 -->
             <button 
-              v-if="!isOwnProduct && product.status === '在售' && userStore.isLoggedIn && !isUnverifiedUser"
+              v-if="!isOwnProduct && product.status === '在售' && canInteract"
               @click="toggleFavorite"
               :class="['btn', product.isFavorite ? 'btn-danger' : 'btn-outline-primary']"
             >
               {{ product.isFavorite ? '取消收藏' : '收藏商品' }}
             </button>
             
-            <!-- 未认证用户的收藏按钮 - 禁用状态 -->
             <button 
-              v-if="!isOwnProduct && product.status === '在售' && isUnverifiedUser"
-              @click="showActivationTip"
-              class="btn btn-outline-secondary"
-              disabled
-            >
-              收藏商品 (需要认证)
-            </button>
-            
-            <button 
-              v-if="!isOwnProduct && product.status === '在售' && !isUnverifiedUser"
+              v-if="!isOwnProduct && product.status === '在售' && canInteract"
               @click="contactSeller"
               class="btn btn-primary"
             >
@@ -136,32 +125,18 @@
             </button>
             
             <button 
-              v-if="!isOwnProduct && product.status === '在售' && isUnverifiedUser"
-              @click="showActivationTip"
-              class="btn btn-outline-secondary"
-              disabled
-            >
-              我想要 (需要认证)
-            </button>
-
-            <!-- 举报按钮 - 只有认证用户可以举报 -->
-            <button 
-              v-if="!isOwnProduct && userStore.isLoggedIn && !isUnverifiedUser"
+              v-if="!isOwnProduct && canInteract"
               @click="reportProduct"
               class="btn btn-outline-danger btn-sm"
             >
               举报
             </button>
-            
-            <!-- 未认证用户的举报按钮 - 禁用状态 -->
-            <button 
-              v-if="!isOwnProduct && isUnverifiedUser"
-              @click="showActivationTip"
-              class="btn btn-outline-secondary btn-sm"
-              disabled
-            >
-              举报 (需要认证)
-            </button>
+
+            <!-- 针对未认证用户的统一提示 -->
+            <div v-if="!isOwnProduct && !canInteract && userStore.isLoggedIn" class="unverified-actions">
+              <p>激活账号后可进行操作</p>
+              <router-link to="/login?tab=activate" class="btn btn-warning btn-sm">去激活</router-link>
+            </div>
           </div>
         </div>
       </div>
@@ -179,7 +154,7 @@
         <h3>商品评论</h3>
         
         <!-- 发表评论 -->
-        <div v-if="userStore.userInfo && !isOwnProduct && !isUnverifiedUser" class="comment-form">
+        <div v-if="userStore.userInfo && !isOwnProduct && canInteract" class="comment-form">
           <div class="form-group">
             <textarea
               v-model="newComment"
@@ -203,7 +178,7 @@
           <p>请 <router-link to="/login">登录</router-link> 后发表评论</p>
         </div>
         
-        <div v-else-if="isUnverifiedUser" class="unverified-prompt">
+        <div v-else-if="!canInteract" class="unverified-prompt">
           <p>⚠️ 完成账号激活后可发表评论 <router-link to="/login?tab=activate">去激活</router-link></p>
         </div>
 
@@ -346,11 +321,17 @@ const currentImage = computed(() => {
 });
 
 const isOwnProduct = computed(() => {
-  return userStore.userInfo?.id === product.value?.seller?.id;
+  return userStore.isLoggedIn && product.value?.seller.id === userStore.userInfo?.id;
 });
 
 const isUnverifiedUser = computed(() => {
   return userStore.isLoggedIn && userStore.userInfo?.role === '未认证用户';
+});
+
+const canInteract = computed(() => {
+  if (!userStore.isLoggedIn) return false;
+  const role = userStore.userInfo?.role;
+  return role === '认证用户' || role === '管理员' || role === '超级管理员';
 });
 
 // 加载商品详情

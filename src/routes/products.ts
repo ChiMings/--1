@@ -177,6 +177,11 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // 发布商品
 router.post('/create', authenticateToken, async (req, res) => {
   try {
+    // 权限检查：只有认证用户和管理员可以发布商品
+    if (req.user!.role === '未认证用户') {
+      return res.status(403).json(error('您的账号尚未激活，无法发布商品'));
+    }
+
     const { name, description, price, categoryId, contact, images } = req.body;
 
     console.log('接收到的数据:', { name, description, price, categoryId, contact, images: images?.length }); // 调试日志
@@ -369,6 +374,11 @@ router.post('/:id/delete', async (req, res) => {
 // 收藏商品
 router.post('/:id/favorite', authenticateToken, async (req, res) => {
   try {
+    // 权限检查
+    if (req.user!.role === '未认证用户') {
+      return res.status(403).json(error('您的账号尚未激活，无法收藏商品'));
+    }
+
     const { id } = req.params;
     const userId = req.user!.id;
 
@@ -480,6 +490,11 @@ router.get('/:id/comments', async (req, res) => {
 // 添加评论
 router.post('/:id/comments/create', authenticateToken, async (req, res) => {
   try {
+    // 权限检查
+    if (req.user!.role === '未认证用户') {
+      return res.status(403).json(error('您的账号尚未激活，无法发表评论'));
+    }
+
     const { id } = req.params;
     const { content } = req.body;
 

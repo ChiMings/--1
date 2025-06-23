@@ -2,7 +2,7 @@
   <div class="my-favorites-view card frosted-glass">
     <div class="page-header">
       <h1>我的收藏</h1>
-      <div class="header-actions">
+      <div class="header-actions" v-if="isVerifiedUser">
         <button
           v-if="selectedProducts.length > 0"
           @click="batchUnfavorite"
@@ -21,147 +21,162 @@
       </div>
     </div>
 
-    <!-- 筛选工具栏 -->
-    <div class="filter-toolbar">
-      <div class="filter-group">
-        <!-- Category Filter -->
-        <div class="filter-dropdown" ref="categoryDropdownRef">
-          <button class="filter-btn" @click="toggleDropdown('category')">
-            <i class="fas fa-tags"></i>
-            <span>{{ selectedCategoryName }}</span>
-            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'category' }"></i>
-          </button>
-          <transition name="dropdown-fade">
-            <div v-if="activeDropdown === 'category'" class="dropdown-menu frosted-glass">
-              <a @click.prevent="selectFilter('categoryId', '')" href="#">所有分类</a>
-              <a v-for="category in categories" :key="category.id" @click.prevent="selectFilter('categoryId', category.id)" href="#">
-                {{ category.name }}
-              </a>
-            </div>
-          </transition>
-        </div>
-
-        <!-- Status Filter -->
-        <div class="filter-dropdown" ref="statusDropdownRef">
-          <button class="filter-btn" @click="toggleDropdown('status')">
-            <i class="fas fa-check-circle"></i>
-            <span>{{ selectedStatusName }}</span>
-            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'status' }"></i>
-          </button>
-          <transition name="dropdown-fade">
-            <div v-if="activeDropdown === 'status'" class="dropdown-menu frosted-glass">
-              <a @click.prevent="selectFilter('status', '')" href="#">全部状态</a>
-              <a @click.prevent="selectFilter('status', '在售')" href="#">在售</a>
-              <a @click.prevent="selectFilter('status', '已售出')" href="#">已售出</a>
-            </div>
-          </transition>
-        </div>
-      </div>
-
-      <div class="filter-group">
-        <!-- SortBy Filter -->
-        <div class="filter-dropdown" ref="sortDropdownRef">
-          <button class="filter-btn" @click="toggleDropdown('sort')">
-            <i class="fas fa-sort-amount-down"></i>
-            <span>{{ selectedSortName }}</span>
-            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'sort' }"></i>
-          </button>
-          <transition name="dropdown-fade">
-            <div v-if="activeDropdown === 'sort'" class="dropdown-menu frosted-glass">
-              <a @click.prevent="selectFilter('sortBy', 'createdAt')" href="#">收藏时间</a>
-              <a @click.prevent="selectFilter('sortBy', 'price')" href="#">价格</a>
-            </div>
-          </transition>
-        </div>
-
-        <!-- Order Filter -->
-        <div class="filter-dropdown" ref="orderDropdownRef">
-          <button class="filter-btn" @click="toggleDropdown('order')">
-             <i :class="filters.order === 'desc' ? 'fas fa-sort-amount-down-alt' : 'fas fa-sort-amount-up-alt'"></i>
-            <span>{{ selectedOrderName }}</span>
-            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'order' }"></i>
-          </button>
-          <transition name="dropdown-fade">
-            <div v-if="activeDropdown === 'order'" class="dropdown-menu frosted-glass">
-              <a @click.prevent="selectFilter('order', 'desc')" href="#">降序</a>
-              <a @click.prevent="selectFilter('order', 'asc')" href="#">升序</a>
-            </div>
-          </transition>
-        </div>
-      </div>
-    </div>
-
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading-state">
-      <div class="spinner"></div>
-    </div>
-
-    <!-- 商品列表 -->
-    <div v-else-if="favorites.length > 0" class="products-grid">
-      <div
-        v-for="product in favorites"
-        :key="product.id"
-        class="favorite-item-card"
-        :class="{ selected: selectedProducts.includes(product.id) }"
-        @click="toggleProductSelection(product.id)"
-      >
-        <ProductCard :product="product" />
-        <div class="selection-overlay">
-          <i class="fas fa-check-circle"></i>
-        </div>
-      </div>
-    </div>
-
-    <!-- 空状态 -->
-    <div v-else class="empty-state">
-      <div class="empty-icon"><i class="far fa-heart"></i></div>
-      <h2>您还没有收藏任何商品</h2>
-      <router-link to="/" class="btn btn-primary">
-        去首页逛逛
+    <!-- 权限不足提示 -->
+    <div v-if="!isVerifiedUser" class="unverified-prompt">
+      <div class="empty-icon"><i class="fas fa-lock"></i></div>
+      <h2>此功能需要激活账号</h2>
+      <p>完成账号激活后，您即可收藏和管理您喜欢的商品。</p>
+      <router-link to="/login?tab=activate" class="btn btn-warning">
+        立即激活
       </router-link>
     </div>
 
-    <!-- 分页 -->
-    <div v-if="!loading && totalPages > 1" class="pagination">
-      <button
-        @click="changePage(currentPage - 1)"
-        :disabled="currentPage <= 1"
-        class="btn btn-secondary"
-      >
-        上一页
-      </button>
-      
-      <div class="page-numbers">
-        <button
-          v-for="page in visiblePages"
-          :key="page"
-          @click="changePage(page)"
-          :class="['btn', page === currentPage ? 'btn-primary' : 'btn-secondary']"
+    <!-- 主内容区域 -->
+    <template v-else>
+      <!-- 筛选工具栏 -->
+      <div class="filter-toolbar">
+        <div class="filter-group">
+          <!-- Category Filter -->
+          <div class="filter-dropdown" ref="categoryDropdownRef">
+            <button class="filter-btn" @click="toggleDropdown('category')">
+              <i class="fas fa-tags"></i>
+              <span>{{ selectedCategoryName }}</span>
+              <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'category' }"></i>
+            </button>
+            <transition name="dropdown-fade">
+              <div v-if="activeDropdown === 'category'" class="dropdown-menu frosted-glass">
+                <a @click.prevent="selectFilter('categoryId', '')" href="#">所有分类</a>
+                <a v-for="category in categories" :key="category.id" @click.prevent="selectFilter('categoryId', category.id)" href="#">
+                  {{ category.name }}
+                </a>
+              </div>
+            </transition>
+          </div>
+
+          <!-- Status Filter -->
+          <div class="filter-dropdown" ref="statusDropdownRef">
+            <button class="filter-btn" @click="toggleDropdown('status')">
+              <i class="fas fa-check-circle"></i>
+              <span>{{ selectedStatusName }}</span>
+              <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'status' }"></i>
+            </button>
+            <transition name="dropdown-fade">
+              <div v-if="activeDropdown === 'status'" class="dropdown-menu frosted-glass">
+                <a @click.prevent="selectFilter('status', '')" href="#">全部状态</a>
+                <a @click.prevent="selectFilter('status', '在售')" href="#">在售</a>
+                <a @click.prevent="selectFilter('status', '已售出')" href="#">已售出</a>
+              </div>
+            </transition>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <!-- SortBy Filter -->
+          <div class="filter-dropdown" ref="sortDropdownRef">
+            <button class="filter-btn" @click="toggleDropdown('sort')">
+              <i class="fas fa-sort-amount-down"></i>
+              <span>{{ selectedSortName }}</span>
+              <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'sort' }"></i>
+            </button>
+            <transition name="dropdown-fade">
+              <div v-if="activeDropdown === 'sort'" class="dropdown-menu frosted-glass">
+                <a @click.prevent="selectFilter('sortBy', 'createdAt')" href="#">收藏时间</a>
+                <a @click.prevent="selectFilter('sortBy', 'price')" href="#">价格</a>
+              </div>
+            </transition>
+          </div>
+
+          <!-- Order Filter -->
+          <div class="filter-dropdown" ref="orderDropdownRef">
+            <button class="filter-btn" @click="toggleDropdown('order')">
+               <i :class="filters.order === 'desc' ? 'fas fa-sort-amount-down-alt' : 'fas fa-sort-amount-up-alt'"></i>
+              <span>{{ selectedOrderName }}</span>
+              <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'order' }"></i>
+            </button>
+            <transition name="dropdown-fade">
+              <div v-if="activeDropdown === 'order'" class="dropdown-menu frosted-glass">
+                <a @click.prevent="selectFilter('order', 'desc')" href="#">降序</a>
+                <a @click.prevent="selectFilter('order', 'asc')" href="#">升序</a>
+              </div>
+            </transition>
+          </div>
+        </div>
+      </div>
+
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+      </div>
+
+      <!-- 商品列表 -->
+      <div v-else-if="favorites.length > 0" class="products-grid">
+        <div
+          v-for="product in favorites"
+          :key="product.id"
+          class="favorite-item-card"
+          :class="{ selected: selectedProducts.includes(product.id) }"
+          @click="toggleProductSelection(product.id)"
         >
-          {{ page }}
+          <ProductCard :product="product" />
+          <div class="selection-overlay">
+            <i class="fas fa-check-circle"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else class="empty-state">
+        <div class="empty-icon"><i class="far fa-heart"></i></div>
+        <h2>您还没有收藏任何商品</h2>
+        <router-link to="/" class="btn btn-primary">
+          去首页逛逛
+        </router-link>
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="!loading && totalPages > 1" class="pagination">
+        <button
+          @click="changePage(currentPage - 1)"
+          :disabled="currentPage <= 1"
+          class="btn btn-secondary"
+        >
+          上一页
+        </button>
+        
+        <div class="page-numbers">
+          <button
+            v-for="page in visiblePages"
+            :key="page"
+            @click="changePage(page)"
+            :class="['btn', page === currentPage ? 'btn-primary' : 'btn-secondary']"
+          >
+            {{ page }}
+          </button>
+        </div>
+        
+        <button
+          @click="changePage(currentPage + 1)"
+          :disabled="currentPage >= totalPages"
+          class="btn btn-secondary"
+        >
+          下一页
         </button>
       </div>
-      
-      <button
-        @click="changePage(currentPage + 1)"
-        :disabled="currentPage >= totalPages"
-        class="btn btn-secondary"
-      >
-        下一页
-      </button>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useUserStore } from '@/store/user';
 import ProductCard from '@/components/ProductCard.vue';
 import { getMyFavorites } from '@/api/users';
 import { unfavoriteProduct as apiUnfavoriteProduct } from '@/api/products';
 import { getCategories } from '@/api/categories';
 
 const router = useRouter();
+const userStore = useUserStore();
 
 // 新增：用于下拉菜单
 const activeDropdown = ref(null);
@@ -224,6 +239,12 @@ const selectedOrderName = computed(() => {
   return filters.order === 'asc' ? '升序' : '降序';
 });
 
+const isVerifiedUser = computed(() => {
+  if (!userStore.isLoggedIn) return false;
+  const role = userStore.userInfo?.role;
+  return role === '认证用户' || role === '管理员' || role === '超级管理员';
+});
+
 // 方法
 const toggleDropdown = (dropdown) => {
   activeDropdown.value = activeDropdown.value === dropdown ? null : dropdown;
@@ -248,6 +269,10 @@ const handleClickOutside = (event) => {
 
 // 加载收藏商品
 async function loadFavorites() {
+  if (!isVerifiedUser.value) {
+    favorites.value = [];
+    return;
+  }
   try {
     loading.value = true;
     
@@ -384,13 +409,15 @@ function goToProductDetail(productId) {
 
 // 组件挂载
 onMounted(() => {
-  loadCategories();
-  loadFavorites();
-  document.addEventListener('click', handleClickOutside);
+  if (isVerifiedUser.value) {
+    loadFavorites();
+    loadCategories();
+    window.addEventListener('click', handleClickOutside);
+  }
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
+  window.removeEventListener('click', handleClickOutside);
 });
 </script>
 
@@ -589,5 +616,47 @@ onUnmounted(() => {
 .dropdown-fade-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+
+.unverified-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1rem;
+  text-align: center;
+  min-height: 300px;
+}
+
+.unverified-prompt .empty-icon {
+  font-size: 3rem;
+  color: var(--text-color-secondary);
+  opacity: 0.6;
+  margin-bottom: 1.5rem;
+}
+
+.unverified-prompt h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.unverified-prompt p {
+  margin-bottom: 1.5rem;
+}
+
+.unverified-prompt .btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.unverified-prompt .btn:hover {
+  background-color: var(--primary-color-dark);
 }
 </style> 
