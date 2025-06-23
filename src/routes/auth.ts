@@ -53,6 +53,10 @@ router.post('/login', async (req, res) => {
       }
     } else if (name) {
       // 游客登录，检查姓名
+      // 如果用户已设置密码，则禁止通过姓名登录
+      if (user.password) {
+        return res.status(401).json(error('您已设置密码，请使用学号和密码登录'));
+      }
       if (user.name !== name) {
         return res.status(401).json(error('姓名不匹配'));
       }
