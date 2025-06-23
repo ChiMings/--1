@@ -127,17 +127,28 @@
         <div v-show="activeTab === 'reviews'" class="reviews-section">
           <div class="section-header">
             <h3>用户评价</h3>
-            <div class="review-summary">
+            <div class="review-summary" v-if="reviewStats">
               <div class="rating-overview">
-                <span class="average-rating">4.8</span>
-                <span class="rating-stars">⭐⭐⭐⭐⭐</span>
-                <span class="review-count">(12条评价)</span>
+                <span class="average-rating">{{ reviewStats.averageRating.toFixed(1) }}</span>
+                <span class="rating-stars">{{ getStarRating(Math.round(reviewStats.averageRating)) }}</span>
+                <span class="review-count">({{ userReviews.length }}条评价)</span>
+              </div>
+            </div>
+            <div class="review-summary" v-else>
+              <div class="rating-overview">
+                <span class="average-rating">0.0</span>
+                <span class="rating-stars">☆☆☆☆☆</span>
+                <span class="review-count">(0条评价)</span>
               </div>
             </div>
           </div>
 
-          <div class="reviews-list">
-            <div v-for="review in mockReviews" :key="review.id" class="review-item">
+          <div v-if="userReviews.length === 0" class="empty-content">
+            <p>暂无评价</p>
+          </div>
+
+          <div v-else class="reviews-list">
+            <div v-for="review in userReviews" :key="review.id" class="review-item">
               <div class="review-header">
                 <div class="reviewer-info">
                   <div class="reviewer-avatar">
@@ -172,10 +183,24 @@
           <div class="section-header">
             <h3>交易记录</h3>
             <p class="section-desc">公开的交易记录，保护隐私信息</p>
+            <div v-if="transactionStats" class="transaction-stats">
+              <div class="stat-item">
+                <span class="label">总交易次数</span>
+                <span class="value">{{ transactionStats.totalTransactions }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="label">总交易金额</span>
+                <span class="value">¥{{ transactionStats.totalAmount?.toFixed(2) || '0.00' }}</span>
+              </div>
+            </div>
           </div>
 
-          <div class="transactions-list">
-            <div v-for="transaction in mockTransactions" :key="transaction.id" class="transaction-item">
+          <div v-if="userTransactions.length === 0" class="empty-content">
+            <p>暂无交易记录</p>
+          </div>
+
+          <div v-else class="transactions-list">
+            <div v-for="transaction in userTransactions" :key="transaction.id" class="transaction-item">
               <div class="transaction-header">
                 <div class="transaction-type">
                   <span :class="['type-badge', transaction.type === 'sell' ? 'seller' : 'buyer']">
@@ -192,6 +217,9 @@
                 <a @click="viewProduct(transaction.product.id)" class="product-link">
                   {{ transaction.product.name }}
                 </a>
+                <span v-if="transaction.category" class="transaction-category">
+                  | {{ transaction.category }}
+                </span>
               </div>
             </div>
           </div>
@@ -206,7 +234,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { getUserById, getProductsByUserId, mockCategories } from '@/utils/mockData';
-import { getUserProfile, getUserProducts } from '@/api/users';
+import { getUserProfile, getUserProducts, getUserReviews, getUserTransactions } from '@/api/users';
 import { config } from '@/utils/config';
 import ProductCard from '@/components/ProductCard.vue';
 
@@ -218,48 +246,16 @@ const userStore = useUserStore();
 const loading = ref(false);
 const user = ref(null);
 const userProducts = ref([]);
+const userReviews = ref([]);
+const userTransactions = ref([]);
+const reviewStats = ref(null);
+const transactionStats = ref(null);
 const activeTab = ref('products');
 const productFilter = ref('all');
 const categoryFilter = ref('');
 
 // 模拟数据
 const categories = mockCategories;
-
-const mockReviews = [
-  {
-    id: 1,
-    reviewer: { id: 2, nickname: '书虫' },
-    rating: 5,
-    content: '交易很愉快，商品描述准确，是个诚信的卖家！',
-    product: { id: 1, name: '九成新罗技鼠标 MX Master 3' },
-    createdAt: '2023-11-01T15:30:00Z'
-  },
-  {
-    id: 2,
-    reviewer: { id: 3, nickname: '运动达人' },
-    rating: 4,
-    content: '商品质量不错，包装很好，推荐！',
-    product: { id: 4, name: 'MacBook Pro 13寸 2020款' },
-    createdAt: '2023-10-26T10:00:00Z'
-  }
-];
-
-const mockTransactions = [
-  {
-    id: 1,
-    type: 'sell',
-    amount: 6500,
-    product: { id: 4, name: 'MacBook Pro 13寸 2020款' },
-    createdAt: '2023-10-26T09:00:00Z'
-  },
-  {
-    id: 2,
-    type: 'sell',
-    amount: 200,
-    product: { id: 1, name: '九成新罗技鼠标 MX Master 3' },
-    createdAt: '2023-11-02T14:30:00Z'
-  }
-];
 
 // 计算属性
 const isCurrentUser = computed(() => {
@@ -282,8 +278,8 @@ const canViewContact = computed(() => {
 
 const tabs = computed(() => [
   { key: 'products', label: '商品', count: userProducts.value.length },
-  { key: 'reviews', label: '评价', count: mockReviews.length },
-  { key: 'transactions', label: '交易记录', count: mockTransactions.length }
+  { key: 'reviews', label: '评价', count: userReviews.value.length },
+  { key: 'transactions', label: '交易记录', count: userTransactions.value.length }
 ]);
 
 const filteredProducts = computed(() => {
@@ -313,14 +309,22 @@ async function loadUserProfile() {
         userProducts.value = getProductsByUserId(parseInt(userId));
       }
     } else {
-      // 调用真实的API - 并行获取用户信息和商品列表
-      const [userResponse, productsResponse] = await Promise.all([
+      // 调用真实的API - 并行获取用户信息、商品列表、评价和交易记录
+      const [userResponse, productsResponse, reviewsResponse, transactionsResponse] = await Promise.all([
         getUserProfile(userId),
         getUserProducts(userId, { 
           page: 1, 
           limit: 50, // 获取更多商品用于展示
           sortBy: 'createdAt',
           order: 'desc'
+        }),
+        getUserReviews(userId, {
+          page: 1,
+          limit: 20
+        }),
+        getUserTransactions(userId, {
+          page: 1,
+          limit: 20
         })
       ]);
       
@@ -339,11 +343,36 @@ async function loadUserProfile() {
         console.error('Failed to load user products:', productsResponse.data.message);
         userProducts.value = [];
       }
+
+      if (reviewsResponse.data.status === 'success') {
+        const reviewData = reviewsResponse.data.data || reviewsResponse.data;
+        userReviews.value = reviewData.items || [];
+        reviewStats.value = {
+          averageRating: reviewData.averageRating || 0,
+          ratingStats: reviewData.ratingStats || {}
+        };
+      } else {
+        console.error('Failed to load user reviews:', reviewsResponse.data.message);
+        userReviews.value = [];
+        reviewStats.value = null;
+      }
+
+      if (transactionsResponse.data.status === 'success') {
+        const transactionData = transactionsResponse.data.data || transactionsResponse.data;
+        userTransactions.value = transactionData.items || [];
+        transactionStats.value = transactionData.stats || {};
+      } else {
+        console.error('Failed to load user transactions:', transactionsResponse.data.message);
+        userTransactions.value = [];
+        transactionStats.value = null;
+      }
     }
   } catch (error) {
     console.error('Failed to load user profile:', error);
     user.value = null;
     userProducts.value = [];
+    userReviews.value = [];
+    userTransactions.value = [];
   } finally {
     loading.value = false;
   }
@@ -671,15 +700,14 @@ onMounted(() => {
 }
 
 .section-header h3 {
-  margin: 0;
   color: #333;
-  font-size: 18px;
+  margin: 0 0 8px 0;
 }
 
 .section-desc {
-  margin: 4px 0 0 0;
   color: #666;
-  font-size: 12px;
+  margin: 0 0 16px 0;
+  font-size: 14px;
 }
 
 .filter-controls {
@@ -701,8 +729,13 @@ onMounted(() => {
 
 .empty-content {
   text-align: center;
-  padding: 60px;
-  color: #666;
+  padding: 40px 20px;
+  color: #999;
+}
+
+.empty-content p {
+  margin: 0;
+  font-size: 16px;
 }
 
 .products-grid {
@@ -899,6 +932,33 @@ onMounted(() => {
 .btn-outline-danger:hover {
   background: #dc3545;
   color: white;
+}
+
+.transaction-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.transaction-stats .stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.transaction-stats .label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.transaction-stats .value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
 }
 
 @media (max-width: 768px) {

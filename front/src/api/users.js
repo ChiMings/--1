@@ -395,4 +395,115 @@ export function getUserProfile(userId) {
     url: `/users/${userId}`,
     method: 'get',
   });
+}
+
+/**
+ * 获取指定用户的评价
+ * @param {string} userId 用户ID
+ * @param {object} params 查询参数
+ */
+export function getUserReviews(userId, params = {}) {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 模拟评价数据
+        const mockReviews = [
+          {
+            id: 1,
+            rating: 5,
+            content: '交易很愉快，商品描述准确，是个诚信的卖家！',
+            reviewer: { id: 2, nickname: '书虫', avatar: null },
+            product: { id: 1, name: '九成新罗技鼠标 MX Master 3' },
+            createdAt: '2023-11-01T15:30:00Z'
+          },
+          {
+            id: 2,
+            rating: 4,
+            content: '商品质量不错，包装很好，推荐！',
+            reviewer: { id: 3, nickname: '运动达人', avatar: null },
+            product: { id: 4, name: 'MacBook Pro 13寸 2020款' },
+            createdAt: '2023-10-26T10:00:00Z'
+          }
+        ];
+        
+        const paginatedData = paginateArray(mockReviews, params.page || 1, params.limit || 20);
+        resolve({ 
+          data: {
+            status: 'success',
+            data: {
+              ...paginatedData,
+              averageRating: 4.8,
+              ratingStats: {
+                excellent: 8,
+                good: 3,
+                fair: 1,
+                poor: 0
+              }
+            }
+          }
+        });
+      }, 200);
+    });
+  }
+  
+  return request({
+    url: `/users/${userId}/reviews`,
+    method: 'get',
+    params,
+  });
+}
+
+/**
+ * 获取指定用户的交易记录
+ * @param {string} userId 用户ID
+ * @param {object} params 查询参数
+ */
+export function getUserTransactions(userId, params = {}) {
+  if (config.useMockData) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // 模拟交易数据
+        const mockTransactions = [
+          {
+            id: 1,
+            type: 'sell',
+            amount: 6500,
+            product: { id: 4, name: 'MacBook Pro 13寸 2020款' },
+            category: '数码产品',
+            createdAt: '2023-10-26T09:00:00Z'
+          },
+          {
+            id: 2,
+            type: 'sell',
+            amount: 200,
+            product: { id: 1, name: '九成新罗技鼠标 MX Master 3' },
+            category: '数码产品',
+            createdAt: '2023-11-02T14:30:00Z'
+          }
+        ];
+        
+        const paginatedData = paginateArray(mockTransactions, params.page || 1, params.limit || 20);
+        resolve({ 
+          data: {
+            status: 'success',
+            data: {
+              ...paginatedData,
+              stats: {
+                totalTransactions: mockTransactions.length,
+                totalAmount: 6700,
+                monthlyTransactions: 1,
+                monthlyAmount: 200
+              }
+            }
+          }
+        });
+      }, 200);
+    });
+  }
+  
+  return request({
+    url: `/users/${userId}/transactions`,
+    method: 'get',
+    params,
+  });
 } 

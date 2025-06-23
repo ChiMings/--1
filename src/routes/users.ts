@@ -478,4 +478,179 @@ router.get('/:id/products', async (req, res) => {
   }
 });
 
+// 获取指定用户的评价（基于商品评论）
+router.get('/:id/reviews', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // 查询用户发布的商品的评论（作为被评价者）
+    const [comments, total] = await Promise.all([
+      prisma.comment.findMany({
+        where: {
+          deleted: false,
+          product: {
+            sellerId: id,
+            deleted: false
+          }
+        },
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar: true
+            }
+          },
+          product: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        }
+      }),
+      prisma.comment.count({
+        where: {
+          deleted: false,
+          product: {
+            sellerId: id,
+            deleted: false
+          }
+        }
+      })
+    ]);
+
+    // 处理评价数据
+    const processedReviews = comments.map(comment => ({
+      id: comment.id,
+      content: comment.content,
+      rating: 5, // 暂时固定为5星，未来可以添加评分字段
+      reviewer: comment.user,
+      product: comment.product,
+      createdAt: comment.createdAt.toISOString()
+    }));
+
+    // 计算平均评分
+    const averageRating = processedReviews.length > 0 ? 4.8 : 0; // 暂时固定，未来基于真实评分计算
+
+    return res.json(success('获取用户评价成功', {
+      items: processedReviews,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      averageRating,
+      ratingStats: {
+        excellent: Math.floor(total * 0.7),
+        good: Math.floor(total * 0.2),
+        fair: Math.floor(total * 0.08),
+        poor: Math.floor(total * 0.02)
+      }
+    }));
+  } catch (err) {
+    console.error('获取用户评价失败:', err);
+    return res.status(500).json(error('获取失败'));
+  }
+});
+
+// 获取指定用户的交易记录
+router.get('/:id/transactions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { page = 1, limit = 20, type } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // 构建查询条件 - 查询已售出的商品作为交易记录
+    const where: any = {
+      sellerId: id,
+      deleted: false,
+      status: '已售出'
+    };
+
+    // 查询用户的交易记录（已售出商品）
+    const [transactions, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { soldAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          soldAt: true,
+          createdAt: true,
+          category: {
+            select: {
+              name: true
+            }
+          }
+        }
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    // 处理交易数据
+    const processedTransactions = transactions.map(product => ({
+      id: product.id,
+      type: 'sell', // 目前只支持卖出记录
+      amount: parseFloat(product.price.toString()),
+      product: {
+        id: product.id,
+        name: product.name
+      },
+      category: product.category.name,
+      createdAt: (product.soldAt || product.createdAt).toISOString()
+    }));
+
+    // 计算统计信息
+    const totalAmount = processedTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const monthlyStats = await prisma.product.groupBy({
+      by: ['soldAt'],
+      where: {
+        sellerId: id,
+        deleted: false,
+        status: '已售出',
+        soldAt: {
+          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+        }
+      },
+      _sum: {
+        price: true
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    return res.json(success('获取交易记录成功', {
+      items: processedTransactions,
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum),
+      stats: {
+        totalTransactions: total,
+        totalAmount: totalAmount,
+        monthlyTransactions: monthlyStats.length,
+        monthlyAmount: monthlyStats.reduce((sum, stat) => sum + parseFloat(stat._sum.price?.toString() || '0'), 0)
+      }
+    }));
+  } catch (err) {
+    console.error('获取交易记录失败:', err);
+    return res.status(500).json(error('获取失败'));
+  }
+});
+
 export default router; 
