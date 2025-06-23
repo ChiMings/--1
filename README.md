@@ -1,4 +1,4 @@
-# 校园二手交易平台后端 API
+# 校园闲置交易平台后端 API
 
 基于 Node.js + TypeScript + Express + Prisma 构建的现代化后端服务。
 

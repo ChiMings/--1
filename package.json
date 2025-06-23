@@ -1,7 +1,7 @@
 {
   "name": "xzjy-backend",
   "version": "1.0.0",
-  "description": "校园二手交易平台后端API",
+  "description": "校园闲置交易平台后端API",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
@@ -40,7 +40,7 @@
   },
   "keywords": [
     "校园",
-    "二手交易",
+    "闲置交易",
     "API",
     "Node.js"
   ],
