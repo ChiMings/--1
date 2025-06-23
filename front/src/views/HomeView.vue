@@ -1,75 +1,73 @@
 <template>
-  <div class="home">
-    <!-- 未认证用户提示 -->
-    <div v-if="showUnverifiedNotice" class="unverified-banner">
-      <div class="banner-content">
-        <div class="banner-message">
-          <span class="banner-icon">⚠️</span>
-          <div class="banner-text">
-            <strong>您当前为未认证用户</strong>
-            <p>功能受限：无法发布商品、评论、查看联系方式。完成账号激活可获得完整功能。</p>
-          </div>
-        </div>
-        <router-link to="/login?tab=activate" class="btn btn-warning">
-          去激活账号
-        </router-link>
-      </div>
-    </div>
-
+  <div class="home-view">
     <!-- 搜索和筛选区域 -->
-    <div class="search-section">
-      <div class="search-container">
+    <div class="hero-section">
+      <div class="hero-content">
+        <h1>发现校园好物</h1>
+        <p>一个专为本校学生打造的、安全可靠的二手交易平台</p>
         <div class="search-box">
+          <i class="fas fa-search search-icon"></i>
           <input
             v-model="searchKeyword"
             @keyup.enter="handleSearch"
-            placeholder="搜索商品名称或描述..."
+            placeholder="搜索你感兴趣的宝贝..."
             class="search-input"
           />
-          <button @click="handleSearch" class="search-button">
+          <button @click="handleSearch" class="btn btn-primary search-button">
             搜索
           </button>
         </div>
-        
-        <div class="filters">
-          <select v-model="filters.categoryId" @change="loadProducts">
+      </div>
+    </div>
+    
+    <!-- 未认证用户提示 -->
+    <div v-if="showUnverifiedNotice" class="unverified-banner frosted-glass">
+        <div class="banner-icon"><i class="fas fa-exclamation-triangle"></i></div>
+        <div class="banner-text">
+          <strong>您的账号尚未激活，部分功能受限。</strong>
+          <span>激活后即可发布商品、自由交易。</span>
+        </div>
+        <router-link to="/login?tab=activate" class="btn btn-warning btn-sm">
+          立即激活
+        </router-link>
+    </div>
+
+    <!-- 商品展示区域 -->
+    <div class="content-section">
+      <!-- 筛选栏 -->
+       <div class="filters-bar frosted-glass">
+        <div class="filter-group">
+          <label for="category-filter">分类</label>
+          <select id="category-filter" v-model="filters.categoryId" @change="loadProducts" class="form-control">
             <option value="">所有分类</option>
             <option v-for="category in categories" :key="category.id" :value="category.id">
               {{ category.name }}
             </option>
           </select>
-          
-          <select v-model="filters.status" @change="loadProducts">
-            <option value="">全部状态</option>
-            <option value="在售">在售</option>
-            <option value="已售出">已售出</option>
-          </select>
-          
-          <select v-model="filters.sortBy" @change="loadProducts">
-            <option value="createdAt">发布时间</option>
-            <option value="price">价格</option>
-          </select>
-          
-          <select v-model="filters.order" @change="loadProducts">
-            <option value="desc">降序</option>
-            <option value="asc">升序</option>
-          </select>
         </div>
+        <div class="filter-group">
+          <label for="sort-filter">排序</label>
+           <div class="sort-controls">
+            <select id="sort-filter" v-model="filters.sortBy" @change="loadProducts" class="form-control">
+              <option value="createdAt">最新发布</option>
+              <option value="price">价格</option>
+            </select>
+            <button @click="toggleSortOrder" class="btn sort-order-btn">
+              <i :class="filters.order === 'desc' ? 'fas fa-sort-amount-down' : 'fas fa-sort-amount-up'"></i>
+            </button>
+          </div>
+        </div>
+         <div class="results-count">
+            <span v-if="!loading">共 {{ total }} 件商品</span>
+            <span v-else>正在加载...</span>
+          </div>
       </div>
-    </div>
 
-    <!-- 商品展示区域 -->
-    <div class="content-section">
-      <!-- 结果统计 -->
-      <div class="results-header">
-        <span v-if="!loading" class="results-count">
-          找到 {{ total }} 个商品
-        </span>
-      </div>
 
       <!-- 加载状态 -->
-      <div v-if="loading" class="loading">
-        <p>加载中...</p>
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>正在加载商品...</p>
       </div>
 
       <!-- 商品网格 -->
@@ -78,45 +76,47 @@
           v-for="product in products"
           :key="product.id"
           :product="product"
-          :show-actions="true"
           @click="goToProductDetail(product.id)"
           @favorite="handleFavoriteToggle"
-          @activation-tip="showActivationTip"
         />
       </div>
 
       <!-- 空状态 -->
       <div v-else class="empty-state">
-        <p>{{ emptyMessage }}</p>
+        <div class="empty-icon">
+          <i class="fas fa-box-open"></i>
+        </div>
+        <h2>{{ emptyMessage }}</h2>
+        <p>换个筛选条件试试，或者看看最新发布的商品吧！</p>
+         <button @click="clearFiltersAndSearch" class="btn btn-primary">查看所有商品</button>
       </div>
 
       <!-- 分页 -->
-      <div v-if="totalPages > 1" class="pagination">
+      <div v-if="!loading && totalPages > 1" class="pagination">
         <button
           @click="changePage(currentPage - 1)"
           :disabled="currentPage <= 1"
-          class="btn btn-secondary"
+          class="btn"
         >
-          上一页
+          <i class="fas fa-chevron-left"></i>
         </button>
-        
         <div class="page-numbers">
           <button
             v-for="page in visiblePages"
             :key="page"
             @click="changePage(page)"
-            :class="['btn', page === currentPage ? 'btn-primary' : 'btn-secondary']"
+            :class="['btn', { 'btn-primary': page === currentPage }]"
+            :disabled="page === '...'"
           >
             {{ page }}
           </button>
         </div>
-        
         <button
           @click="changePage(currentPage + 1)"
           :disabled="currentPage >= totalPages"
-          class="btn btn-secondary"
+          class="btn"
         >
-          下一页
+          <i class="fas fa-chevron-right"></i>
         </button>
       </div>
     </div>
@@ -165,14 +165,20 @@ const emptyMessage = computed(() => {
 });
 
 const visiblePages = computed(() => {
-  const pages = [];
-  const start = Math.max(1, currentPage.value - 2);
-  const end = Math.min(totalPages.value, currentPage.value + 2);
-  
-  for (let i = start; i <= end; i++) {
-    pages.push(i);
+  if (totalPages.value <= 7) {
+    return Array.from({ length: totalPages.value }, (_, i) => i + 1);
   }
-  
+  const pages = [];
+  const current = currentPage.value;
+  const total = totalPages.value;
+
+  if (current <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', total);
+  } else if (current > total - 4) {
+    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
+  } else {
+    pages.push(1, '...', current - 1, current, current + 1, '...', total);
+  }
   return pages;
 });
 
@@ -299,6 +305,20 @@ function showActivationTip() {
   alert('您当前为未认证用户，请先完成账号激活以使用完整功能。');
 }
 
+function toggleSortOrder() {
+  filters.order = filters.order === 'desc' ? 'asc' : 'desc';
+  loadProducts();
+}
+
+function clearFiltersAndSearch() {
+  searchKeyword.value = '';
+  filters.categoryId = '';
+  filters.sortBy = 'createdAt';
+  filters.order = 'desc';
+  currentPage.value = 1;
+  loadProducts();
+}
+
 // 组件挂载时加载数据
 onMounted(() => {
   loadCategories();
@@ -307,239 +327,216 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.home {
-  min-height: 100vh;
+.home-view {
+  width: 100%;
 }
 
-.unverified-banner {
-  background: linear-gradient(135deg, #ff9f43, #f39c12);
+.hero-section {
+  position: relative;
+  padding: 6rem 1rem;
+  text-align: center;
+  border-radius: 1.5rem;
+  overflow: hidden;
   color: white;
-  padding: 16px 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
 }
 
-.banner-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/首页bj.jpg') no-repeat center center;
+  background-size: cover;
+  z-index: -1;
 }
 
-.banner-message {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
+.hero-content {
+  position: relative;
+  z-index: 1;
 }
 
-.banner-icon {
-  font-size: 24px;
-  flex-shrink: 0;
+.hero-content h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
 }
 
-.banner-text strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 16px;
-}
-
-.banner-text p {
-  margin: 0;
-  font-size: 14px;
-  opacity: 0.9;
-}
-
-.btn-warning {
-  background: #fff;
-  color: #f39c12;
-  text-decoration: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: 500;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.btn-warning:hover {
-  background: #f8f9fa;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.search-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 40px 20px;
-  color: white;
-}
-
-.search-container {
-  max-width: 1200px;
-  margin: 0 auto;
+.hero-content p {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.7);
 }
 
 .search-box {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
   max-width: 600px;
+  margin: 0 auto;
+  background-color: var(--bg-elevated);
+  border-radius: 12px;
+  padding: 0.5rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
-
+.search-icon {
+  align-self: center;
+  margin: 0 0.5rem 0 1rem;
+  color: var(--text-color-secondary);
+}
 .search-input {
-  flex: 1;
-  padding: 12px 16px;
+  flex-grow: 1;
   border: none;
-  border-radius: 6px;
-  font-size: 16px;
+  background: transparent;
+  padding: 0.75rem 0.5rem;
+  font-size: 1rem;
+  color: var(--text-color);
+}
+.search-input:focus {
   outline: none;
 }
-
 .search-button {
-  padding: 12px 24px;
-  background: #28a745;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background-color 0.2s;
+  flex-shrink: 0;
 }
 
-.search-button:hover {
-  background: #218838;
-}
-
-.filters {
+.unverified-banner {
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
 }
-
-.filters select {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 4px;
-  background: white;
-  color: #333;
-  cursor: pointer;
+.banner-icon {
+  font-size: 1.5rem;
+  color: var(--warning-color);
+}
+.banner-text {
+  flex-grow: 1;
+}
+.banner-text strong {
+  display: block;
+  font-weight: 600;
+}
+.banner-text span {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+}
+.unverified-banner .btn {
+  white-space: nowrap;
 }
 
 .content-section {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px 20px;
+  padding: 0 0.5rem;
 }
 
-.results-header {
-  margin-bottom: 20px;
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  position: sticky;
+  top: 80px; /* Navbar height + some space */
+  z-index: 900;
+}
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.filter-group label {
+  font-weight: 500;
+  color: var(--text-color-secondary);
+  white-space: nowrap;
+}
+.filter-group .form-control {
+  background-color: var(--bg-color);
+  min-width: 150px;
+}
+.sort-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+.sort-order-btn {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-color-secondary);
+}
+.sort-order-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .results-count {
-  color: #666;
-  font-size: 14px;
-}
-
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: #666;
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--text-color-secondary);
 }
 
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 24px;
-  margin-bottom: 40px;
+  gap: 1.5rem;
 }
 
-.empty-state {
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1rem;
   text-align: center;
-  padding: 80px 20px;
-  color: #666;
+  min-height: 400px;
 }
 
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid var(--primary-color-light);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1.5rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state .empty-icon {
+  font-size: 4rem;
+  color: var(--text-color-secondary);
+  margin-bottom: 1.5rem;
+  opacity: 0.5;
+}
+.empty-state h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
 .empty-state p {
-  font-size: 16px;
+  color: var(--text-color-secondary);
+  margin-bottom: 1.5rem;
 }
 
 .pagination {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 8px;
-  margin-top: 40px;
+  gap: 0.5rem;
+  margin-top: 2.5rem;
+  padding: 1rem;
 }
-
+.pagination .btn {
+  min-width: 40px;
+}
 .page-numbers {
   display: flex;
-  gap: 4px;
-}
-
-.btn {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  font-size: 14px;
-}
-
-.btn-primary {
-  background-color: #007bff;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #0056b3;
-}
-
-.btn-secondary {
-  background-color: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #545b62;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@media (max-width: 768px) {
-  .search-section {
-    padding: 24px 16px;
-  }
-  
-  .search-box {
-    flex-direction: column;
-  }
-  
-  .filters {
-    flex-direction: column;
-  }
-  
-  .content-section {
-    padding: 16px;
-  }
-  
-  .products-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .pagination {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  
-  .page-numbers {
-    order: 1;
-    width: 100%;
-    justify-content: center;
-  }
+  gap: 0.5rem;
 }
 </style> 

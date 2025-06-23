@@ -1,89 +1,108 @@
 <template>
-  <div class="my-products">
+  <div class="my-products-view card frosted-glass">
     <div class="page-header">
       <h1>我的发布</h1>
       <router-link to="/user/product/create" class="btn btn-primary">
-        发布新商品
+        <i class="fas fa-plus"></i> 发布新商品
       </router-link>
     </div>
 
     <!-- 筛选工具栏 -->
     <div class="filter-toolbar">
       <div class="filter-group">
-        <label>状态筛选：</label>
-        <select v-model="filters.status" @change="loadProducts">
+        <label for="status-filter">状态</label>
+        <select id="status-filter" v-model="filters.status" @change="loadProducts" class="form-control">
           <option value="">全部</option>
           <option value="在售">在售</option>
           <option value="已售出">已售出</option>
         </select>
       </div>
-      
       <div class="filter-group">
-        <label>排序：</label>
-        <select v-model="filters.sortBy" @change="loadProducts">
-          <option value="createdAt">发布时间</option>
-          <option value="price">价格</option>
-        </select>
-        <select v-model="filters.order" @change="loadProducts">
-          <option value="desc">降序</option>
-          <option value="asc">升序</option>
-        </select>
+        <label for="sort-filter">排序</label>
+        <div class="sort-controls">
+          <select id="sort-filter" v-model="filters.sortBy" @change="loadProducts" class="form-control">
+            <option value="createdAt">发布时间</option>
+            <option value="price">价格</option>
+          </select>
+           <button @click="toggleSortOrder" class="btn sort-order-btn">
+              <i :class="filters.order === 'desc' ? 'fas fa-sort-amount-down' : 'fas fa-sort-amount-up'"></i>
+            </button>
+        </div>
       </div>
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading">
-      <p>加载中...</p>
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
     </div>
 
     <!-- 商品列表 -->
     <div v-else-if="products.length > 0" class="products-grid">
-      <div v-for="product in products" :key="product.id" class="product-wrapper">
+      <div v-for="product in products" :key="product.id" class="product-management-card">
         <ProductCard
           :product="product"
-          :show-actions="true"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @mark-sold="handleMarkSold"
+          @click="handleEdit(product)"
         />
+        <div class="card-actions">
+           <button @click.stop="handleEdit(product)" class="btn btn-sm btn-secondary">
+              <i class="fas fa-edit"></i> 编辑
+            </button>
+            <button 
+              v-if="product.status === '在售'" 
+              @click.stop="handleMarkSold(product)"
+              class="btn btn-sm btn-warning"
+            >
+              <i class="fas fa-check-circle"></i> 标记已售
+            </button>
+            <button @click.stop="handleDelete(product)" class="btn btn-sm btn-danger">
+              <i class="fas fa-trash-alt"></i> 删除
+            </button>
+        </div>
       </div>
     </div>
 
     <!-- 空状态 -->
     <div v-else class="empty-state">
-      <p>您还没有发布任何商品</p>
+      <div class="empty-icon"><i class="fas fa-box-open"></i></div>
+      <h2>您还没有发布任何商品</h2>
       <router-link to="/user/product/create" class="btn btn-primary">
-        发布第一个商品
+        去发布第一个商品
       </router-link>
     </div>
 
     <!-- 分页 -->
-    <div v-if="totalPages > 1" class="pagination">
+    <div v-if="!loading && totalPages > 1" class="pagination">
       <button
         @click="changePage(currentPage - 1)"
         :disabled="currentPage <= 1"
-        class="btn btn-secondary"
+        class="btn"
       >
-        上一页
+        <i class="fas fa-chevron-left"></i>
       </button>
-      
-      <span class="page-info">
-        第 {{ currentPage }} 页，共 {{ totalPages }} 页
-      </span>
-      
+      <div class="page-numbers">
+        <button
+          v-for="page in visiblePages"
+          :key="page"
+          @click="changePage(page)"
+          :class="['btn', { 'btn-primary': page === currentPage }]"
+          :disabled="page === '...'"
+        >
+          {{ page }}
+        </button>
+      </div>
       <button
         @click="changePage(currentPage + 1)"
         :disabled="currentPage >= totalPages"
-        class="btn btn-secondary"
+        class="btn"
       >
-        下一页
+        <i class="fas fa-chevron-right"></i>
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { updateProductStatus, deleteProduct } from '@/api/products'
 import { getUserProducts } from '@/api/users'
@@ -105,6 +124,24 @@ const filters = reactive({
 })
 
 const pageSize = 12
+
+const visiblePages = computed(() => {
+  if (totalPages.value <= 7) {
+    return Array.from({ length: totalPages.value }, (_, i) => i + 1);
+  }
+  const pages = [];
+  const current = currentPage.value;
+  const total = totalPages.value;
+
+  if (current <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', total);
+  } else if (current > total - 4) {
+    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total);
+  } else {
+    pages.push(1, '...', current - 1, current, current + 1, '...', total);
+  }
+  return pages;
+});
 
 // 加载商品列表
 async function loadProducts() {
@@ -192,6 +229,11 @@ async function handleMarkSold(product) {
   }
 }
 
+function toggleSortOrder() {
+  filters.order = filters.order === 'desc' ? 'asc' : 'desc';
+  loadProducts();
+}
+
 // 组件挂载时加载数据
 onMounted(() => {
   loadProducts()
@@ -199,156 +241,141 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.my-products {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+.my-products-view {
+  padding: 2rem;
+  border-radius: 1.5rem;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
 }
-
 .page-header h1 {
-  color: #2c3e50;
+  font-size: 1.75rem;
+  font-weight: 600;
   margin: 0;
 }
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #5a6268;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.page-header .btn {
+  gap: 0.5rem;
 }
 
 .filter-toolbar {
   display: flex;
-  gap: 20px;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background-color: var(--bg-color-alt);
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.75rem;
 }
-
 .filter-group label {
   font-weight: 500;
-  color: #495057;
+  color: var(--text-color-secondary);
   white-space: nowrap;
 }
-
-.filter-group select {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
+.sort-controls {
+  display: flex;
+  gap: 0.5rem;
 }
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #6c757d;
+.sort-order-btn {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-color-secondary);
 }
 
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  margin-bottom: 30px;
+  gap: 1.5rem;
 }
 
-.empty-state {
+.product-management-card {
+  position: relative;
+  border-radius: 16px; /* Match ProductCard radius */
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.product-management-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.product-management-card:hover .card-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card-actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  padding: 0.75rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  opacity: 0;
+  transform: translateY(100%);
+  transition: all 0.3s ease;
+}
+
+.card-actions .btn-sm {
+  flex-grow: 1;
+  margin: 0 0.25rem;
+  gap: 0.5rem;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  --btn-shadow-color: rgba(0,0,0,0.3);
+  box-shadow: 0 2px 5px var(--btn-shadow-color);
+}
+
+/* Reusing loading and empty state styles from HomeView */
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1rem;
   text-align: center;
-  padding: 60px 20px;
-  color: #6c757d;
+  min-height: 300px;
 }
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--primary-color-light);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.empty-state p {
-  font-size: 1.1rem;
-  margin-bottom: 20px;
+.empty-state .empty-icon {
+  font-size: 3rem;
+  color: var(--text-color-secondary);
+  opacity: 0.6;
+  margin-bottom: 1.5rem;
+}
+.empty-state h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 20px;
-  margin-top: 30px;
-}
-
-.page-info {
-  color: #6c757d;
-  font-weight: 500;
-}
-
-@media (max-width: 768px) {
-  .my-products {
-    padding: 15px;
-  }
-  
-  .page-header {
-    flex-direction: column;
-    gap: 15px;
-    text-align: center;
-  }
-  
-  .filter-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .filter-group {
-    justify-content: space-between;
-  }
-  
-  .products-grid {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-  
-  .pagination {
-    flex-direction: column;
-    gap: 10px;
-  }
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
 }
 </style> 

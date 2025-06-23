@@ -1,180 +1,160 @@
 <template>
-  <div class="favorites-page">
+  <div class="my-favorites-view card frosted-glass">
     <div class="page-header">
       <h1>我的收藏</h1>
-      <p>这里显示您收藏的所有商品</p>
-    </div>
-
-    <!-- 筛选工具栏 -->
-    <div class="toolbar">
-      <div class="filters">
-        <select v-model="filters.categoryId" @change="loadFavorites">
-          <option value="">所有分类</option>
-          <option v-for="category in categories" :key="category.id" :value="category.id">
-            {{ category.name }}
-          </option>
-        </select>
-        
-        <select v-model="filters.status" @change="loadFavorites">
-          <option value="">全部状态</option>
-          <option value="在售">在售</option>
-          <option value="已售出">已售出</option>
-        </select>
-        
-        <select v-model="filters.sortBy" @change="loadFavorites">
-          <option value="createdAt">收藏时间</option>
-          <option value="price">价格</option>
-        </select>
-        
-        <select v-model="filters.order" @change="loadFavorites">
-          <option value="desc">降序</option>
-          <option value="asc">升序</option>
-        </select>
-      </div>
-
-      <div class="actions">
-        <button 
+      <div class="header-actions">
+        <button
           v-if="selectedProducts.length > 0"
           @click="batchUnfavorite"
           class="btn btn-danger"
         >
-          批量取消收藏 ({{ selectedProducts.length }})
+          <i class="fas fa-trash-alt"></i> 批量取消 ({{ selectedProducts.length }})
         </button>
-        
-        <button 
-          v-if="selectedProducts.length > 0"
-          @click="clearSelection"
+        <button
+          v-if="favorites.length > 0"
+          @click="toggleSelectAll"
           class="btn btn-secondary"
         >
-          取消选择
+          <i :class="isAllSelected ? 'fas fa-check-square' : 'far fa-square'"></i>
+          {{ isAllSelected ? '取消全选' : '全选' }}
         </button>
       </div>
     </div>
 
-    <!-- 统计信息 -->
-    <div class="stats">
-      <span class="total-count">共 {{ total }} 个收藏商品</span>
-      <span v-if="selectedProducts.length > 0" class="selected-count">
-        已选择 {{ selectedProducts.length }} 个
-      </span>
+    <!-- 筛选工具栏 -->
+    <div class="filter-toolbar">
+      <div class="filter-group">
+        <!-- Category Filter -->
+        <div class="filter-dropdown" ref="categoryDropdownRef">
+          <button class="filter-btn" @click="toggleDropdown('category')">
+            <i class="fas fa-tags"></i>
+            <span>{{ selectedCategoryName }}</span>
+            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'category' }"></i>
+          </button>
+          <transition name="dropdown-fade">
+            <div v-if="activeDropdown === 'category'" class="dropdown-menu frosted-glass">
+              <a @click.prevent="selectFilter('categoryId', '')" href="#">所有分类</a>
+              <a v-for="category in categories" :key="category.id" @click.prevent="selectFilter('categoryId', category.id)" href="#">
+                {{ category.name }}
+              </a>
+            </div>
+          </transition>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="filter-dropdown" ref="statusDropdownRef">
+          <button class="filter-btn" @click="toggleDropdown('status')">
+            <i class="fas fa-check-circle"></i>
+            <span>{{ selectedStatusName }}</span>
+            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'status' }"></i>
+          </button>
+          <transition name="dropdown-fade">
+            <div v-if="activeDropdown === 'status'" class="dropdown-menu frosted-glass">
+              <a @click.prevent="selectFilter('status', '')" href="#">全部状态</a>
+              <a @click.prevent="selectFilter('status', '在售')" href="#">在售</a>
+              <a @click.prevent="selectFilter('status', '已售出')" href="#">已售出</a>
+            </div>
+          </transition>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <!-- SortBy Filter -->
+        <div class="filter-dropdown" ref="sortDropdownRef">
+          <button class="filter-btn" @click="toggleDropdown('sort')">
+            <i class="fas fa-sort-amount-down"></i>
+            <span>{{ selectedSortName }}</span>
+            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'sort' }"></i>
+          </button>
+          <transition name="dropdown-fade">
+            <div v-if="activeDropdown === 'sort'" class="dropdown-menu frosted-glass">
+              <a @click.prevent="selectFilter('sortBy', 'createdAt')" href="#">收藏时间</a>
+              <a @click.prevent="selectFilter('sortBy', 'price')" href="#">价格</a>
+            </div>
+          </transition>
+        </div>
+
+        <!-- Order Filter -->
+        <div class="filter-dropdown" ref="orderDropdownRef">
+          <button class="filter-btn" @click="toggleDropdown('order')">
+             <i :class="filters.order === 'desc' ? 'fas fa-sort-amount-down-alt' : 'fas fa-sort-amount-up-alt'"></i>
+            <span>{{ selectedOrderName }}</span>
+            <i class="fas fa-chevron-down arrow-icon" :class="{ 'open': activeDropdown === 'order' }"></i>
+          </button>
+          <transition name="dropdown-fade">
+            <div v-if="activeDropdown === 'order'" class="dropdown-menu frosted-glass">
+              <a @click.prevent="selectFilter('order', 'desc')" href="#">降序</a>
+              <a @click.prevent="selectFilter('order', 'asc')" href="#">升序</a>
+            </div>
+          </transition>
+        </div>
+      </div>
     </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="loading">
-      <p>加载中...</p>
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
     </div>
 
-    <!-- 收藏商品列表 -->
-    <div v-else-if="favorites.length > 0" class="favorites-content">
-      <!-- 批量选择选项 -->
-      <div class="batch-selector">
-        <label class="checkbox-container">
-          <input 
-            type="checkbox" 
-            :checked="isAllSelected"
-            @change="toggleSelectAll"
-          />
-          <span class="checkmark"></span>
-          全选
-        </label>
-      </div>
-
-      <!-- 商品网格 -->
-      <div class="products-grid">
-        <div 
-          v-for="product in favorites" 
-          :key="product.id"
-          :class="['product-item', { selected: selectedProducts.includes(product.id) }]"
-        >
-          <!-- 选择框 -->
-          <div class="product-selector">
-            <label class="checkbox-container">
-              <input 
-                type="checkbox" 
-                :checked="selectedProducts.includes(product.id)"
-                @change="toggleProductSelection(product.id)"
-              />
-              <span class="checkmark"></span>
-            </label>
-          </div>
-
-          <!-- 商品卡片 -->
-          <ProductCard
-            :product="product"
-            :show-actions="false"
-            @click="goToProductDetail(product.id)"
-          />
-
-          <!-- 操作按钮 -->
-          <div class="product-actions">
-            <button 
-              @click="unfavoriteProduct(product.id)"
-              class="btn btn-outline-danger btn-sm"
-            >
-              取消收藏
-            </button>
-            
-            <button 
-              v-if="product.status === '在售'"
-              @click="contactSeller(product)"
-              class="btn btn-outline-primary btn-sm"
-            >
-              联系卖家
-            </button>
-          </div>
-
-          <!-- 收藏时间 -->
-          <div class="favorite-time">
-            收藏于 {{ formatDate(product.favoriteAt || product.createdAt) }}
-          </div>
+    <!-- 商品列表 -->
+    <div v-else-if="favorites.length > 0" class="products-grid">
+      <div
+        v-for="product in favorites"
+        :key="product.id"
+        class="favorite-item-card"
+        :class="{ selected: selectedProducts.includes(product.id) }"
+        @click="toggleProductSelection(product.id)"
+      >
+        <ProductCard :product="product" />
+        <div class="selection-overlay">
+          <i class="fas fa-check-circle"></i>
         </div>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="pagination">
-        <button
-          @click="changePage(currentPage - 1)"
-          :disabled="currentPage <= 1"
-          class="btn btn-secondary"
-        >
-          上一页
-        </button>
-        
-        <div class="page-numbers">
-          <button
-            v-for="page in visiblePages"
-            :key="page"
-            @click="changePage(page)"
-            :class="['btn', page === currentPage ? 'btn-primary' : 'btn-secondary']"
-          >
-            {{ page }}
-          </button>
-        </div>
-        
-        <button
-          @click="changePage(currentPage + 1)"
-          :disabled="currentPage >= totalPages"
-          class="btn btn-secondary"
-        >
-          下一页
-        </button>
       </div>
     </div>
 
     <!-- 空状态 -->
     <div v-else class="empty-state">
-      <div class="empty-icon">♡</div>
-      <h3>暂无收藏商品</h3>
-      <p>去首页逛逛，收藏喜欢的商品吧！</p>
+      <div class="empty-icon"><i class="far fa-heart"></i></div>
+      <h2>您还没有收藏任何商品</h2>
       <router-link to="/" class="btn btn-primary">
-        去首页看看
+        去首页逛逛
       </router-link>
+    </div>
+
+    <!-- 分页 -->
+    <div v-if="!loading && totalPages > 1" class="pagination">
+      <button
+        @click="changePage(currentPage - 1)"
+        :disabled="currentPage <= 1"
+        class="btn btn-secondary"
+      >
+        上一页
+      </button>
+      
+      <div class="page-numbers">
+        <button
+          v-for="page in visiblePages"
+          :key="page"
+          @click="changePage(page)"
+          :class="['btn', page === currentPage ? 'btn-primary' : 'btn-secondary']"
+        >
+          {{ page }}
+        </button>
+      </div>
+      
+      <button
+        @click="changePage(currentPage + 1)"
+        :disabled="currentPage >= totalPages"
+        class="btn btn-secondary"
+      >
+        下一页
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import ProductCard from '@/components/ProductCard.vue';
 import { getMyFavorites } from '@/api/users';
@@ -182,6 +162,13 @@ import { unfavoriteProduct as apiUnfavoriteProduct } from '@/api/products';
 import { getCategories } from '@/api/categories';
 
 const router = useRouter();
+
+// 新增：用于下拉菜单
+const activeDropdown = ref(null);
+const categoryDropdownRef = ref(null);
+const statusDropdownRef = ref(null);
+const sortDropdownRef = ref(null);
+const orderDropdownRef = ref(null);
 
 // 响应式数据
 const loading = ref(false);
@@ -217,6 +204,47 @@ const visiblePages = computed(() => {
 const isAllSelected = computed(() => {
   return favorites.value.length > 0 && selectedProducts.value.length === favorites.value.length;
 });
+
+const selectedCategoryName = computed(() => {
+  const category = categories.value.find(c => c.id === filters.categoryId);
+  return category ? category.name : '所有分类';
+});
+
+const selectedStatusName = computed(() => {
+  if (filters.status === '在售') return '在售';
+  if (filters.status === '已售出') return '已售出';
+  return '全部状态';
+});
+
+const selectedSortName = computed(() => {
+  return filters.sortBy === 'price' ? '价格' : '收藏时间';
+});
+
+const selectedOrderName = computed(() => {
+  return filters.order === 'asc' ? '升序' : '降序';
+});
+
+// 方法
+const toggleDropdown = (dropdown) => {
+  activeDropdown.value = activeDropdown.value === dropdown ? null : dropdown;
+};
+
+const closeDropdown = () => {
+  activeDropdown.value = null;
+};
+
+const selectFilter = (key, value) => {
+  filters[key] = value;
+  closeDropdown();
+  loadFavorites();
+};
+
+const handleClickOutside = (event) => {
+  const refs = [categoryDropdownRef, statusDropdownRef, sortDropdownRef, orderDropdownRef];
+  if (!refs.some(ref => ref.value && ref.value.contains(event.target))) {
+    closeDropdown();
+  }
+};
 
 // 加载收藏商品
 async function loadFavorites() {
@@ -302,10 +330,6 @@ function toggleSelectAll() {
   }
 }
 
-function clearSelection() {
-  selectedProducts.value = [];
-}
-
 // 取消收藏单个商品
 async function unfavoriteProduct(productId) {
   if (!confirm('确定要取消收藏这个商品吗？')) return;
@@ -353,330 +377,217 @@ async function batchUnfavorite() {
   }
 }
 
-// 联系卖家
-function contactSeller(product) {
-  if (!userStore.isLoggedIn) {
-    alert('请先登录后再联系卖家');
-    router.push('/login');
-    return;
-  }
-  
-  if (!product.seller) {
-    alert('卖家信息不完整');
-    return;
-  }
-  
-  // 跳转到私信页面，并自动开启与卖家的对话
-  router.push({
-    name: 'MyMessages',
-    query: {
-      userId: product.seller.id,
-      nickname: product.seller.nickname,
-      productId: product.id,
-      productName: product.name
-    }
-  });
-}
-
 // 跳转到商品详情
 function goToProductDetail(productId) {
   router.push(`/product/${productId}`);
-}
-
-// 格式化日期
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('zh-CN');
 }
 
 // 组件挂载
 onMounted(() => {
   loadCategories();
   loadFavorites();
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
 });
 </script>
 
 <style scoped>
-.favorites-page {
-  max-width: 1200px;
-  margin: 0 auto;
+.my-favorites-view {
+  padding: 2rem;
+  border-radius: 1.5rem;
 }
 
 .page-header {
-  margin-bottom: 32px;
-}
-
-.page-header h1 {
-  margin: 0 0 8px 0;
-  color: #333;
-  font-size: 24px;
-}
-
-.page-header p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 16px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
 }
-
-.filters {
+.page-header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0;
+}
+.header-actions {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 1rem;
 }
-
-.filters select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
-  color: #333;
-  cursor: pointer;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.stats {
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: #666;
-}
-
-.selected-count {
-  margin-left: 16px;
-  color: #007bff;
-  font-weight: 500;
-}
-
-.loading {
-  text-align: center;
-  padding: 60px 20px;
-  color: #666;
-}
-
-.favorites-content {
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.batch-selector {
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
-}
-
-.checkbox-container {
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 14px;
-  color: #333;
-}
-
-.checkbox-container input {
-  margin-right: 8px;
-}
-
-.checkmark {
-  margin-left: 8px;
+.header-actions .btn {
+  gap: 0.5rem;
 }
 
 .products-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
 }
 
-.product-item {
+.favorite-item-card {
   position: relative;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  padding: 12px;
-  transition: all 0.2s;
+  cursor: pointer;
+  border-radius: 16px; /* Match ProductCard */
+  border: 3px solid transparent;
+  transition: all 0.2s ease;
 }
 
-.product-item.selected {
-  border-color: #007bff;
-  background: #f8f9ff;
+.favorite-item-card.selected {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 20px rgba(var(--primary-color), 0.3);
 }
 
-.product-selector {
+.selection-overlay {
   position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 10;
-  background: white;
-  border-radius: 4px;
-  padding: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.product-actions {
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 30px;
+  height: 30px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 50%;
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.2s ease-in-out;
+  border: 2px solid white;
 }
 
-.favorite-time {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #666;
+.favorite-item-card.selected .selection-overlay {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Reusing loading and empty state styles from HomeView */
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1rem;
   text-align: center;
+  min-height: 300px;
 }
-
-.empty-state {
-  text-align: center;
-  padding: 80px 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--primary-color-light);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.empty-icon {
-  font-size: 64px;
-  color: #ddd;
-  margin-bottom: 16px;
+.empty-state .empty-icon {
+  font-size: 3rem;
+  color: var(--text-color-secondary);
+  opacity: 0.6;
+  margin-bottom: 1.5rem;
 }
-
-.empty-state h3 {
-  margin: 0 0 8px 0;
-  color: #666;
-  font-size: 20px;
-}
-
-.empty-state p {
-  margin: 0 0 24px 0;
-  color: #999;
+.empty-state h2 {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 8px;
-  margin-top: 32px;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
 }
 
-.page-numbers {
+/* Filter Toolbar Styles */
+.filter-toolbar {
   display: flex;
-  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
 }
 
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
+.filter-group {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-dropdown {
+  position: relative;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
   cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  min-width: 150px;
+  justify-content: space-between;
+}
+
+.filter-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--primary-color);
+}
+
+.filter-btn .arrow-icon {
+  transition: transform 0.2s ease;
+}
+
+.filter-btn .arrow-icon.open {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  width: 100%;
+  min-width: 180px;
+  padding: 0.5rem;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-menu a {
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
   text-decoration: none;
-  display: inline-block;
-  font-size: 14px;
-  transition: all 0.2s;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
 }
 
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
+.dropdown-menu a:hover {
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
 }
 
-.btn-primary {
-  background: #007bff;
-  color: white;
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #545b62;
-}
-
-.btn-danger {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: #c82333;
-}
-
-.btn-outline-primary {
-  background: transparent;
-  color: #007bff;
-  border: 1px solid #007bff;
-}
-
-.btn-outline-primary:hover:not(:disabled) {
-  background: #007bff;
-  color: white;
-}
-
-.btn-outline-danger {
-  background: transparent;
-  color: #dc3545;
-  border: 1px solid #dc3545;
-}
-
-.btn-outline-danger:hover:not(:disabled) {
-  background: #dc3545;
-  color: white;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@media (max-width: 768px) {
-  .toolbar {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-  
-  .filters {
-    flex-direction: column;
-  }
-  
-  .actions {
-    justify-content: center;
-  }
-  
-  .products-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  
-  .pagination {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  
-  .page-numbers {
-    order: 1;
-    width: 100%;
-    justify-content: center;
-  }
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style> 

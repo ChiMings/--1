@@ -1,157 +1,158 @@
 <template>
-  <header class="navbar">
+  <header class="navbar frosted-glass">
     <div class="container">
       <router-link to="/" class="logo">
-        <span class="logo-icon">🛒</span>
-        校园二手市场
+        <i class="fas fa-store logo-icon"></i>
+        <h1>闲置交易</h1>
       </router-link>
-      
+
+      <div v-if="userStore.token" class="search-bar">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" placeholder="搜索商品..." />
+      </div>
+
       <nav class="nav-links">
-        <router-link to="/" class="nav-link">首页</router-link>
-        <router-link to="/notices" class="nav-link">公告</router-link>
-        
+        <router-link to="/" class="nav-link" title="首页">
+          <i class="fas fa-home"></i>
+          <span class="nav-text">首页</span>
+        </router-link>
+        <router-link to="/notices" class="nav-link" title="公告">
+          <i class="fas fa-bullhorn"></i>
+          <span class="nav-text">公告</span>
+        </router-link>
+        <router-link v-if="userStore.token" to="/user/product/create" class="nav-link cta-link" title="发布商品">
+          <i class="fas fa-plus-circle"></i>
+          <span class="nav-text">发布商品</span>
+        </router-link>
+      </nav>
+
+      <div class="user-actions">
         <template v-if="userStore.token">
-          <!-- 用户菜单 -->
           <div class="user-menu" ref="userMenuRef">
-            <div class="user-info" @click="toggleUserMenu">
-              <div class="user-avatar">
-                <img 
-                  v-if="userStore.userInfo?.avatar" 
-                  :src="userStore.userInfo.avatar" 
-                  :alt="userName"
-                  class="avatar-image"
-                />
-                <span v-else class="avatar-initial">{{ userAvatar }}</span>
-              </div>
-              <span class="user-name">{{ userName }}</span>
-              <span class="dropdown-arrow">▼</span>
-            </div>
-            
-            <div v-if="showUserMenu" class="dropdown-menu">
-              <div class="dropdown-header">
-                <div class="user-info">
-                  <div class="user-meta">
-                    <span class="user-role">{{ userStore.userInfo?.role }}</span>
+            <button @click="toggleUserMenu" class="user-info-button">
+              <img
+                v-if="userStore.userInfo?.avatar"
+                :src="userStore.userInfo.avatar"
+                :alt="userName"
+                class="avatar-image"
+              />
+              <span v-else class="avatar-initial">{{ userAvatar }}</span>
+               <span class="user-name">{{ userName }}</span>
+               <i class="fas fa-chevron-down dropdown-arrow" :class="{ 'open': showUserMenu }"></i>
+            </button>
+
+            <transition name="fade">
+              <div v-if="showUserMenu" class="dropdown-menu frosted-glass">
+                <div class="dropdown-header">
+                  <div class="user-info-dropdown">
+                    <img
+                      v-if="userStore.userInfo?.avatar"
+                      :src="userStore.userInfo.avatar"
+                      :alt="userName"
+                      class="avatar-image large"
+                    />
+                     <span v-else class="avatar-initial large">{{ userAvatar }}</span>
+                    <div class="user-meta">
+                      <span class="user-name-large">{{ userName }}</span>
+                      <span class="user-role-badge">{{ userStore.userInfo?.role }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="dropdown-section">
-                <div class="section-title">我的商品</div>
-                <router-link to="/user/products" class="dropdown-item">
-                  <span class="item-icon">📦</span>
-                  我的发布
-                </router-link>
-                <router-link to="/user/product/create" class="dropdown-item">
-                  <span class="item-icon">➕</span>
-                  发布商品
-                </router-link>
-                <router-link to="/user/favorites" class="dropdown-item">
-                  <span class="item-icon">❤️</span>
-                  我的收藏
-                </router-link>
-              </div>
+                <div class="dropdown-section">
+                  <router-link to="/user/profile" class="dropdown-item">
+                    <i class="fas fa-user-circle item-icon"></i>
+                    个人主页
+                  </router-link>
+                   <router-link to="/user/products" class="dropdown-item">
+                    <i class="fas fa-box-open item-icon"></i>
+                    我的发布
+                  </router-link>
+                  <router-link to="/user/favorites" class="dropdown-item">
+                    <i class="fas fa-heart item-icon"></i>
+                    我的收藏
+                  </router-link>
+                </div>
 
-              <div class="dropdown-section">
-                <div class="section-title">消息中心</div>
-                <router-link to="/user/messages" class="dropdown-item">
-                  <span class="item-icon">💬</span>
-                  私信消息
-                  <span v-if="unreadMessages > 0" class="badge">{{ unreadMessages }}</span>
-                </router-link>
-                <router-link to="/user/notifications" class="dropdown-item">
-                  <span class="item-icon">🔔</span>
-                  系统通知
-                  <span v-if="unreadNotifications > 0" class="badge">{{ unreadNotifications }}</span>
-                </router-link>
+                <div class="dropdown-section">
+                   <router-link to="/user/messages" class="dropdown-item">
+                    <i class="fas fa-envelope item-icon"></i>
+                    私信消息
+                    <span v-if="unreadMessages > 0" class="badge">{{ unreadMessages }}</span>
+                  </router-link>
+                  <router-link to="/user/notifications" class="dropdown-item">
+                    <i class="fas fa-bell item-icon"></i>
+                    系统通知
+                    <span v-if="unreadNotifications > 0" class="badge">{{ unreadNotifications }}</span>
+                  </router-link>
+                </div>
 
-              </div>
-
-              <div class="dropdown-section">
-                <div class="section-title">账号管理</div>
-                <router-link to="/user/profile" class="dropdown-item">
-                  <span class="item-icon">⚙️</span>
-                  个人设置
-                </router-link>
-                <router-link 
-                  v-if="isAdmin" 
-                  to="/admin/dashboard" 
+                <router-link
+                  v-if="isAdmin"
+                  to="/admin/dashboard"
                   class="dropdown-item admin-item"
                 >
-                  <span class="item-icon">🛠️</span>
+                  <i class="fas fa-shield-alt item-icon"></i>
                   管理后台
                 </router-link>
-              </div>
 
-              <div class="dropdown-divider"></div>
-              
-              <button @click="handleLogout" class="dropdown-item logout-item">
-                <span class="item-icon">🚪</span>
-                退出登录
-              </button>
-            </div>
+                <div class="dropdown-divider"></div>
+
+                <button @click="handleLogout" class="dropdown-item logout-item">
+                  <i class="fas fa-sign-out-alt item-icon"></i>
+                  退出登录
+                </button>
+              </div>
+            </transition>
           </div>
-          
-          <!-- 管理员入口 -->
-          <router-link 
-            v-if="isAdmin" 
-            to="/admin/dashboard" 
-            class="nav-link admin-link"
-          >
-            后台管理
-          </router-link>
         </template>
-        
+
         <template v-else>
-          <router-link to="/login" class="nav-link login-link">
+          <router-link to="/login" class="btn btn-primary login-btn">
             登录/注册
           </router-link>
         </template>
-      </nav>
-      
+      </div>
+
       <!-- 移动端菜单按钮 -->
       <button class="mobile-menu-btn" @click="toggleMobileMenu">
-        <span></span>
-        <span></span>
-        <span></span>
+        <i :class="showMobileMenu ? 'fas fa-times' : 'fas fa-bars'"></i>
       </button>
     </div>
-    
+
     <!-- 移动端菜单 -->
-    <div v-if="showMobileMenu" class="mobile-menu">
-      <router-link to="/" class="mobile-nav-link" @click="closeMobileMenu">
-        首页
-      </router-link>
-      
-      <router-link to="/notices" class="mobile-nav-link" @click="closeMobileMenu">
-        公告
-      </router-link>
-      
-      <template v-if="userStore.token">
-        <router-link to="/user/products" class="mobile-nav-link" @click="closeMobileMenu">
-          我的发布
+    <transition name="slide-fade">
+      <div v-if="showMobileMenu" class="mobile-menu frosted-glass">
+        <router-link to="/" class="mobile-nav-link" @click="closeMobileMenu">
+          <i class="fas fa-home"></i> 首页
         </router-link>
-        <router-link to="/user/favorites" class="mobile-nav-link" @click="closeMobileMenu">
-          我的收藏
+        <router-link to="/notices" class="mobile-nav-link" @click="closeMobileMenu">
+          <i class="fas fa-bullhorn"></i> 公告
         </router-link>
-        <router-link to="/user/messages" class="mobile-nav-link" @click="closeMobileMenu">
-          私信消息
+        <router-link v-if="userStore.token" to="/user/product/create" class="mobile-nav-link" @click="closeMobileMenu">
+          <i class="fas fa-plus-circle"></i> 发布商品
         </router-link>
 
-        <router-link to="/user/profile" class="mobile-nav-link" @click="closeMobileMenu">
-          个人设置
-        </router-link>
-        <button @click="handleLogout" class="mobile-nav-link logout-item">
-          退出登录
-        </button>
-      </template>
-      
-      <template v-else>
-        <router-link to="/login" class="mobile-nav-link" @click="closeMobileMenu">
-          登录/注册
-        </router-link>
-      </template>
-    </div>
+        <div class="mobile-divider"></div>
+
+        <template v-if="userStore.token">
+           <router-link to="/user/profile" class="mobile-nav-link" @click="closeMobileMenu">
+            <i class="fas fa-user-circle"></i> 个人主页
+          </router-link>
+          <router-link to="/user/products" class="mobile-nav-link" @click="closeMobileMenu">
+            <i class="fas fa-box-open"></i> 我的发布
+          </router-link>
+          <button @click="handleLogout" class="mobile-nav-link logout-item">
+            <i class="fas fa-sign-out-alt"></i> 退出登录
+          </button>
+        </template>
+        <template v-else>
+          <router-link to="/login" class="mobile-nav-link" @click="closeMobileMenu">
+            <i class="fas fa-sign-in-alt"></i> 登录/注册
+          </router-link>
+        </template>
+      </div>
+    </transition>
   </header>
 </template>
 
@@ -206,11 +207,11 @@ function closeMobileMenu() {
 }
 
 function handleLogout() {
-  if (confirm('确定要退出登录吗？')) {
+  if (window.confirm('确定要退出登录吗？')) {
     userStore.logout();
     closeUserMenu();
     closeMobileMenu();
-    router.push('/');
+    router.replace('/');
   }
 }
 
@@ -289,277 +290,372 @@ onUnmounted(() => {
 
 <style scoped>
 .navbar {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
   z-index: 1000;
+  width: 100%;
+  padding: 0 1.5rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.navbar.frosted-glass {
+  background: rgba(var(--bg-color-rgb), 0.65);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: none;
 }
 
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   height: 64px;
-  padding: 0 20px;
+  gap: 1.5rem;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 20px;
-  font-weight: 700;
-  color: #333;
+  gap: 0.75rem;
   text-decoration: none;
-  transition: color 0.2s;
-}
-
-.logo:hover {
-  color: #007bff;
+  color: var(--text-color);
 }
 
 .logo-icon {
-  font-size: 24px;
+  font-size: 1.75rem;
+  color: var(--primary-color);
+}
+
+.logo h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.search-bar {
+  position: relative;
+  flex-grow: 1;
+  max-width: 400px;
+}
+
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  transform: translateY(-50%);
+  color: var(--text-color-secondary);
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg-color-alt);
+  color: var(--text-color);
+  transition: all 0.2s ease;
+}
+.search-bar input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--primary-color-light);
+  background: var(--bg-elevated);
 }
 
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 0.5rem;
 }
 
 .nav-link {
-  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
   text-decoration: none;
+  color: var(--text-color-secondary);
   font-weight: 500;
-  padding: 8px 16px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
-.nav-link:hover {
-  color: #007bff;
-  background: #f8f9fa;
+.nav-link:hover,
+.nav-link.router-link-exact-active {
+  color: var(--primary-color);
+  background-color: var(--primary-color-light);
 }
 
-.login-link {
-  background: #007bff;
-  color: white !important;
+.nav-link.cta-link {
+  background-color: var(--primary-color);
+  color: white;
+}
+.nav-link.cta-link:hover {
+  background-color: var(--primary-color);
+  filter: brightness(1.1);
 }
 
-.login-link:hover {
-  background: #0056b3;
-  color: white !important;
+.user-actions {
+  display: flex;
+  align-items: center;
 }
 
-.admin-link {
-  background: #28a745;
-  color: white !important;
-}
-
-.admin-link:hover {
-  background: #218838;
-  color: white !important;
+.login-btn {
+  white-space: nowrap;
 }
 
 .user-menu {
   position: relative;
-  cursor: pointer;
 }
 
-.user-info {
+.user-info-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
   transition: background-color 0.2s;
-  cursor: pointer;
-  user-select: none;
+}
+.user-info-button:hover {
+  background-color: var(--bg-color-alt);
 }
 
-.user-info:hover {
-  background: #f8f9fa;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
+.avatar-image,
 .avatar-initial {
-  width: 100%;
-  height: 100%;
-  background: #007bff;
-  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-color);
+}
+.avatar-initial {
   display: flex;
   align-items: center;
   justify-content: center;
+  background-color: var(--primary-color);
+  color: white;
   font-weight: 600;
-  font-size: 14px;
 }
 
 .user-name {
   font-weight: 500;
-  color: #333;
+  color: var(--text-color);
 }
 
 .dropdown-arrow {
-  font-size: 12px;
-  color: #666;
-  transition: transform 0.2s;
+  color: var(--text-color-secondary);
+  font-size: 0.8rem;
+  transition: transform 0.2s ease;
+}
+.dropdown-arrow.open {
+  transform: rotate(180deg);
 }
 
 .dropdown-menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 10px);
   right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  padding: 8px 0;
-  min-width: 180px;
-  z-index: 1001;
+  width: 280px;
+  padding: 0.5rem;
+  border-radius: 12px;
+  z-index: 1010;
 }
 
 .dropdown-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid #eee;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
+.user-info-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.avatar-image.large,
+.avatar-initial.large {
+  width: 48px;
+  height: 48px;
+}
 .user-meta {
   display: flex;
-  gap: 12px;
-  font-size: 12px;
+  flex-direction: column;
 }
-
-.user-role {
-  background: #e3f2fd;
-  color: #1976d2;
-  padding: 2px 6px;
-  border-radius: 4px;
+.user-name-large {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color);
 }
-
-.user-credit {
-  color: #666;
+.user-role-badge {
+  font-size: 0.8rem;
+  background: var(--bg-color-alt);
+  color: var(--text-color-secondary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  align-self: flex-start;
+  margin-top: 0.25rem;
 }
 
 .dropdown-section {
-  padding: 8px 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
 }
-
-.section-title {
-  padding: 8px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.dropdown-section:last-of-type {
+  border-bottom: none;
 }
 
 .dropdown-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   width: 100%;
-  padding: 12px 16px;
-  color: #333;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
   text-decoration: none;
-  border: none;
+  color: var(--text-color);
   background: none;
-  cursor: pointer;
-  font-size: 14px;
+  border: none;
+  font-size: 1rem;
   text-align: left;
-  transition: background-color 0.2s;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
-
 .dropdown-item:hover {
-  background: #f8f9fa;
+  background-color: var(--bg-color-alt);
+}
+.item-icon {
+  width: 20px;
+  text-align: center;
+  color: var(--text-color-secondary);
+}
+.dropdown-item:hover .item-icon {
+  color: var(--primary-color);
 }
 
-.logout-item {
-  color: #dc3545;
+.badge {
+  margin-left: auto;
+  background-color: var(--danger-color);
+  color: white;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-weight: 500;
 }
 
-.logout-item:hover {
-  background: #f8d7da;
+.admin-item {
+  color: var(--success-color);
 }
 
 .dropdown-divider {
   height: 1px;
-  background: #e9ecef;
-  margin: 8px 0;
+  background: var(--border-color);
+  margin: 0.5rem 0;
+}
+
+.logout-item {
+  color: var(--danger-color);
+}
+.logout-item:hover {
+  background-color: rgba(var(--danger-color), 0.1);
 }
 
 .mobile-menu-btn {
   display: none;
-  flex-direction: column;
-  gap: 4px;
   background: none;
   border: none;
+  font-size: 1.5rem;
+  color: var(--text-color);
   cursor: pointer;
-  padding: 8px;
-}
-
-.mobile-menu-btn span {
-  width: 24px;
-  height: 3px;
-  background: #333;
-  border-radius: 2px;
-  transition: all 0.2s;
 }
 
 .mobile-menu {
   display: none;
-  background: white;
-  border-top: 1px solid #e9ecef;
-  padding: 16px 20px;
 }
 
-.mobile-nav-link {
-  display: block;
-  padding: 12px 0;
-  color: #333;
-  text-decoration: none;
-  border-bottom: 1px solid #f8f9fa;
-  font-weight: 500;
-}
 
-.mobile-nav-link:hover {
-  color: #007bff;
-}
-
-.mobile-nav-link:last-child {
-  border-bottom: none;
+@media (max-width: 1024px) {
+  .search-bar {
+    display: none;
+  }
+  .nav-links .nav-text {
+    display: none;
+  }
+  .nav-link {
+    padding: 0.5rem;
+  }
+   .nav-links {
+    gap: 0;
+  }
+  .nav-link i {
+    font-size: 1.25rem;
+  }
 }
 
 @media (max-width: 768px) {
-  .nav-links {
+  .nav-links, .user-actions .btn, .user-actions .user-menu {
     display: none;
   }
-  
   .mobile-menu-btn {
+    display: block;
+  }
+  .search-bar {
     display: flex;
+    max-width: none;
+  }
+  .container {
+    height: 56px;
+  }
+  .navbar {
+    padding: 0 1rem;
   }
   
   .mobile-menu {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding: 1rem;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border-color);
   }
-  
-  .container {
-    padding: 0 16px;
+
+  .mobile-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-color);
+    font-size: 1.1rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    width: 100%;
+    text-align: left;
+  }
+  .mobile-nav-link:hover {
+    background-color: var(--bg-color-alt);
+  }
+  .mobile-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 0.5rem 0;
+  }
+  .slide-fade-enter-active {
+    transition: all 0.3s ease-out;
+  }
+  .slide-fade-leave-active {
+    transition: all 0.3s cubic-bezier(1, 0.5, 0.8, 1);
+  }
+  .slide-fade-enter-from,
+  .slide-fade-leave-to {
+    transform: translateY(-20px);
+    opacity: 0;
   }
 }
 </style> 

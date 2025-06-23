@@ -54,6 +54,7 @@
     <!-- 通知列表 -->
     <div class="notifications-container">
       <div v-if="loading" class="loading">
+        <div class="loading-spinner"></div>
         <p>加载中...</p>
       </div>
 
@@ -114,7 +115,7 @@
       </div>
 
       <!-- 分页 -->
-      <div v-if="filteredNotifications.length > 0 && totalPages > 1" class="pagination">
+      <div v-if="showPagination" class="pagination">
         <button 
           :disabled="currentPage === 1"
           @click="changePage(currentPage - 1)"
@@ -210,6 +211,10 @@ const totalPages = computed(() => {
   return Math.ceil(filtered.length / pageSize.value);
 });
 
+const showPagination = computed(() => {
+  return !loading.value && filteredNotifications.value.length > 0 && totalPages.value > 1;
+});
+
 // 加载通知数据
 async function loadNotifications() {
   try {
@@ -221,9 +226,14 @@ async function loadNotifications() {
     
     // 使用内存中的数据处理经验
     const apiData = response.data.data || response.data;
-    notifications.value = apiData.items || [];
+    const newNotifications = apiData.items || [];
     
-    console.log('加载的通知数据:', notifications.value);
+    // 延迟一点更新，避免闪烁
+    setTimeout(() => {
+      notifications.value = newNotifications;
+      console.log('加载的通知数据:', notifications.value);
+    }, 100);
+    
   } catch (error) {
     console.error('加载通知失败:', error);
     notifications.value = [];
@@ -233,7 +243,10 @@ async function loadNotifications() {
     const errorMessage = error.response?.data?.message || error.message || '加载通知失败，请稍后重试';
     alert(errorMessage);
   } finally {
-    loading.value = false;
+    // 最小加载时间确保用户看到加载状态
+    setTimeout(() => {
+      loading.value = false;
+    }, 300);
   }
 }
 
@@ -530,18 +543,46 @@ onMounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
 }
 
 .loading {
   text-align: center;
   padding: 60px;
   color: #666;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .empty-notifications {
   text-align: center;
   padding: 60px 20px;
   color: #666;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .empty-icon {
@@ -564,6 +605,7 @@ onMounted(() => {
 .notifications-list {
   display: flex;
   flex-direction: column;
+  flex: 1;
 }
 
 .notification-item {

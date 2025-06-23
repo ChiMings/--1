@@ -1,195 +1,131 @@
 <template>
-  <div class="my-reports-page">
+  <div class="my-reports-view card frosted-glass">
+    <!-- Page Header -->
     <div class="page-header">
-      <h1>我的举报</h1>
-      <p>查看您提交的举报记录和处理状态</p>
+      <h1><i class="fas fa-flag"></i> 我的举报</h1>
+      <p class="subtitle">查看您提交的举报记录和处理状态</p>
     </div>
 
-    <!-- 统计信息 -->
-    <div class="reports-stats">
-      <div class="stat-item">
-        <span class="count">{{ reports.length }}</span>
-        <span class="label">总举报数</span>
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon-wrapper"><i class="fas fa-list-ul"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ reports.length }}</div>
+          <div class="stat-label">总举报数</div>
+        </div>
       </div>
-      <div class="stat-item">
-        <span class="count pending">{{ pendingCount }}</span>
-        <span class="label">待处理</span>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper icon-pending"><i class="fas fa-hourglass-half"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ pendingCount }}</div>
+          <div class="stat-label">待处理</div>
+        </div>
       </div>
-      <div class="stat-item">
-        <span class="count processed">{{ processedCount }}</span>
-        <span class="label">已处理</span>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper icon-processed"><i class="fas fa-check-double"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ processedCount }}</div>
+          <div class="stat-label">已处理</div>
+        </div>
       </div>
-      <div class="stat-item">
-        <span class="count rejected">{{ rejectedCount }}</span>
-        <span class="label">已驳回</span>
-      </div>
-    </div>
-
-    <!-- 筛选选项 -->
-    <div class="filter-section">
-      <div class="filter-tabs">
-        <button 
-          v-for="filter in filterOptions"
-          :key="filter.value"
-          :class="['filter-tab', { active: selectedFilter === filter.value }]"
-          @click="selectedFilter = filter.value"
-        >
-          {{ filter.label }}
-          <span v-if="filter.count > 0" class="count-badge">{{ filter.count }}</span>
-        </button>
+      <div class="stat-card">
+        <div class="stat-icon-wrapper icon-rejected"><i class="fas fa-times-circle"></i></div>
+        <div class="stat-info">
+          <div class="stat-number">{{ rejectedCount }}</div>
+          <div class="stat-label">已驳回</div>
+        </div>
       </div>
     </div>
+    
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+      <button
+        v-for="filter in filterOptions"
+        :key="filter.value"
+        :class="['filter-tab', { 'active': selectedFilter === filter.value }]"
+        @click="selectedFilter = filter.value"
+      >
+        <i :class="filter.icon"></i>
+        <span>{{ filter.label }}</span>
+        <span v-if="filter.count > 0" class="count-badge">{{ filter.count }}</span>
+      </button>
+    </div>
 
-    <!-- 举报列表 -->
-    <div class="reports-container">
-      <div v-if="loading" class="loading">
-        <p>加载中...</p>
+    <!-- Reports List -->
+    <div class="reports-list-container">
+      <div v-if="loading" class="loading-state">
+        <div class="spinner"></div>
+        <p>正在加载举报记录...</p>
       </div>
-
-      <div v-else-if="filteredReports.length === 0" class="empty-reports">
-        <div class="empty-icon">📢</div>
-        <h3>暂无{{ getFilterLabel() }}举报</h3>
-        <p>{{ getEmptyMessage() }}</p>
+      
+      <div v-else-if="filteredReports.length === 0" class="empty-state">
+        <i class="fas fa-gavel fa-3x"></i>
+        <h3>暂无{{ getFilterLabel() }}的举报记录</h3>
+        <p>您可以在商品页面或用户主页发起举报</p>
       </div>
 
       <div v-else class="reports-list">
-        <div 
-          v-for="report in filteredReports"
-          :key="report.id"
-          class="report-item"
-        >
-          <div class="report-header">
-            <div class="report-info">
+        <div v-for="report in paginatedReports" :key="report.id" class="report-item">
+          <div class="report-main">
+            <div class="report-details">
               <div class="report-reason">
-                <strong>{{ report.reason }}</strong>
+                <strong>举报原因：</strong> {{ report.reason }}
               </div>
-              <div class="report-time">{{ formatTime(report.createdAt) }}</div>
+              <div v-if="report.content" class="report-description">
+                <strong>详细描述：</strong> {{ report.content }}
+              </div>
+              <div class="report-meta">
+                <i class="fas fa-clock"></i> {{ formatTime(report.createdAt) }}
+              </div>
             </div>
-            <span :class="['report-status', getStatusClass(report.status)]">
+            <div :class="['report-status-badge', getStatusClass(report.status)]">
+              <i :class="getStatusIcon(report.status)"></i>
               {{ getStatusText(report.status) }}
-            </span>
+            </div>
           </div>
 
-          <div class="report-content">
-            <div v-if="report.product" class="product-info">
-              <div class="product-thumbnail">
-                <img 
-                  :src="getProductImage(report.product)" 
-                  :alt="report.product.name"
-                  @error="handleImageError"
-                />
-              </div>
-              <div class="product-details">
-                <div class="product-name">{{ report.product.name }}</div>
-                <div class="product-price">¥{{ report.product.price }}</div>
-                <div class="product-status">
-                  <span :class="['status-badge', getProductStatusClass(report.product.status)]">
-                    {{ report.product.status }}
-                  </span>
-                </div>
+          <div v-if="report.product" class="report-target">
+            <div class="target-info">
+              <img :src="getProductImage(report.product)" :alt="report.product.name" @error="handleImageError" class="target-image" />
+              <div class="target-details">
+                <div class="target-name">{{ report.product.name }}</div>
+                <div class="target-price">¥{{ report.product.price }}</div>
               </div>
             </div>
-
-            <div v-if="report.content" class="report-description">
-              <strong>详细描述：</strong>{{ report.content }}
+            <div class="target-actions">
+              <button @click="viewProduct(report.product.id)" class="btn btn-sm">
+                <i class="fas fa-eye"></i> 查看商品
+              </button>
             </div>
           </div>
-
-          <div class="report-actions">
-            <button 
-              v-if="report.product"
-              @click="viewProduct(report.product.id)"
-              class="btn btn-sm btn-outline-primary"
-            >
-              查看商品
-            </button>
-            
-            <button 
-              v-if="report.status === '待处理'"
-              @click="cancelReport(report)"
-              class="btn btn-sm btn-outline-danger"
-            >
-              撤销举报
-            </button>
-            
-            <button 
-              @click="viewReportDetail(report)"
-              class="btn btn-sm btn-outline-secondary"
-            >
-              查看详情
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="totalPages > 1" class="pagination">
-        <button 
-          :disabled="currentPage === 1"
-          @click="changePage(currentPage - 1)"
-          class="btn btn-outline-secondary btn-sm"
-        >
-          上一页
-        </button>
-        
-        <span class="page-info">
-          第 {{ currentPage }} 页 / 共 {{ totalPages }} 页
-        </span>
-        
-        <button 
-          :disabled="currentPage === totalPages"
-          @click="changePage(currentPage + 1)"
-          class="btn btn-outline-secondary btn-sm"
-        >
-          下一页
-        </button>
-      </div>
-    </div>
-
-    <!-- 举报详情弹窗 -->
-    <div v-if="showDetailDialog" class="modal-overlay" @click="closeDetailDialog">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>举报详情</h3>
-          <button @click="closeDetailDialog" class="close-btn">&times;</button>
-        </div>
-        
-        <div class="modal-body">
-          <div v-if="selectedReport" class="report-detail">
-            <div class="detail-row">
-              <strong>举报原因：</strong>{{ selectedReport.reason }}
+          
+          <div class="report-footer">
+            <div class="admin-reply" v-if="report.status !== '待处理' && report.adminComment">
+              <strong>处理说明：</strong> {{ report.adminComment }}
             </div>
-            
-            <div v-if="selectedReport.content" class="detail-row">
-              <strong>详细描述：</strong>{{ selectedReport.content }}
-            </div>
-            
-            <div class="detail-row">
-              <strong>举报状态：</strong>
-              <span :class="['report-status', getStatusClass(selectedReport.status)]">
-                {{ getStatusText(selectedReport.status) }}
-              </span>
-            </div>
-            
-            <div class="detail-row">
-              <strong>举报时间：</strong>{{ formatDate(selectedReport.createdAt) }}
-            </div>
-            
-            <div v-if="selectedReport.updatedAt !== selectedReport.createdAt" class="detail-row">
-              <strong>更新时间：</strong>{{ formatDate(selectedReport.updatedAt) }}
-            </div>
-            
-            <div v-if="selectedReport.product" class="detail-row">
-              <strong>举报商品：</strong>{{ selectedReport.product.name }}
+            <div class="report-actions">
+              <button v-if="report.status === '待处理'" @click="cancelReport(report)" class="btn btn-sm btn-danger">
+                <i class="fas fa-ban"></i> 撤销举报
+              </button>
             </div>
           </div>
-        </div>
-        
-        <div class="modal-footer">
-          <button @click="closeDetailDialog" class="btn btn-secondary">关闭</button>
         </div>
       </div>
     </div>
+    
+    <!-- Pagination -->
+    <div v-if="totalPages > 1" class="pagination-controls">
+      <button @click="changePage(currentPage - 1)" :disabled="currentPage <= 1" class="btn">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <span>第 {{ currentPage }} / {{ totalPages }} 页</span>
+      <button @click="changePage(currentPage + 1)" :disabled="currentPage >= totalPages" class="btn">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+
+    <!-- Details modal is removed for now to simplify, can be re-added if needed -->
   </div>
 </template>
 
@@ -222,10 +158,10 @@ const filterOptions = computed(() => {
   }, {});
 
   return [
-    { value: 'all', label: '全部', count: reports.value.length },
-    { value: '待处理', label: '待处理', count: counts['待处理'] || 0 },
-    { value: '已处理', label: '已处理', count: counts['已处理'] || 0 },
-    { value: '已驳回', label: '已驳回', count: counts['已驳回'] || 0 }
+    { value: 'all', label: '全部', count: reports.value.length, icon: 'fas fa-list' },
+    { value: '待处理', label: '待处理', count: counts['待处理'] || 0, icon: 'fas fa-hourglass-half' },
+    { value: '已处理', label: '已处理', count: counts['已处理'] || 0, icon: 'fas fa-check-double' },
+    { value: '已驳回', label: '已驳回', count: counts['已驳回'] || 0, icon: 'fas fa-times-circle' }
   ];
 });
 
@@ -259,13 +195,13 @@ const filteredReports = computed(() => {
 });
 
 const totalPages = computed(() => {
-  let filtered = [...reports.value];
-  
-  if (selectedFilter.value !== 'all') {
-    filtered = filtered.filter(r => r.status === selectedFilter.value);
-  }
-  
-  return Math.ceil(filtered.length / pageSize.value);
+  return Math.ceil(filteredReports.value.length / pageSize.value);
+});
+
+const paginatedReports = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return filteredReports.value.slice(start, end);
 });
 
 // 加载举报数据
@@ -297,33 +233,20 @@ async function loadReports() {
 
 // 查看商品详情
 function viewProduct(productId) {
-  router.push(`/product/${productId}`);
+  router.push(`/products/${productId}`);
 }
 
 // 撤销举报
 async function cancelReport(report) {
-  if (!confirm('确定要撤销这个举报吗？撤销后无法恢复。')) {
-    return;
-  }
-  
-  try {
-    const response = await cancelReportAPI(report.id);
-    
-    if (response.data.status === 'success') {
-      // 从本地列表中移除
-      const index = reports.value.findIndex(r => r.id === report.id);
-      if (index !== -1) {
-        reports.value.splice(index, 1);
-      }
-      
+  if (confirm('确定要撤销这条举报吗？')) {
+    try {
+      await cancelReportAPI(report.id);
+      fetchReports();
       alert('举报已撤销');
-    } else {
-      throw new Error(response.data.message || '撤销失败');
+    } catch (error) {
+      console.error('撤销举报失败:', error);
+      alert('操作失败，请重试');
     }
-    
-  } catch (error) {
-    console.error('Failed to cancel report:', error);
-    alert(error.message || '撤销失败，请重试');
   }
 }
 
@@ -341,105 +264,57 @@ function closeDetailDialog() {
 
 // 改变页码
 function changePage(page) {
-  currentPage.value = page;
+  if (page > 0 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
 }
 
 // 工具函数
 function getStatusText(status) {
-  const statusMap = {
+  const map = {
     '待处理': '待处理',
-    '已处理': '已处理', 
-    '已驳回': '已驳回'
+    '已处理': '已处理',
+    '已驳回': '已驳回',
   };
-  return statusMap[status] || status;
+  return map[status] || '未知';
 }
 
 function getStatusClass(status) {
-  const statusMap = {
+  const map = {
     '待处理': 'status-pending',
     '已处理': 'status-processed',
-    '已驳回': 'status-rejected'
+    '已驳回': 'status-rejected',
   };
-  return statusMap[status] || 'status-default';
+  return map[status] || 'status-unknown';
 }
 
-function getProductStatusClass(status) {
-  const statusMap = {
-    '在售': 'product-available',
-    '已售出': 'product-sold',
-    '已下架': 'product-removed'
+function getStatusIcon(status) {
+  const map = {
+    '待处理': 'fas fa-hourglass-half',
+    '已处理': 'fas fa-check-double',
+    '已驳回': 'fas fa-times-circle',
   };
-  return statusMap[status] || 'product-default';
+  return map[status] || 'fas fa-question-circle';
 }
 
 function getProductImage(product) {
   if (product.images && product.images.length > 0) {
-    try {
-      const images = typeof product.images === 'string' 
-        ? JSON.parse(product.images) 
-        : product.images;
-      return images[0] || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
-    } catch (e) {
-      return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
-    }
+    return product.images[0].startsWith('http') ? product.images[0] : `${config.API_URL}${product.images[0]}`;
   }
-  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
+  return '/首页bj.jpg';
 }
 
 function handleImageError(event) {
-  // 使用SVG占位图片，避免无限加载
-  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuaXoOWbvueJhzwvdGV4dD4KPC9zdmc+';
-  // 移除事件监听器，防止重复触发
-  event.target.onerror = null;
+  event.target.src = '/首页bj.jpg';
 }
 
 function getFilterLabel() {
-  const option = filterOptions.value.find(opt => opt.value === selectedFilter.value);
-  return option && option.value !== 'all' ? option.label : '';
+  const filter = filterOptions.value.find(f => f.value === selectedFilter.value);
+  return filter ? filter.label : '';
 }
 
-function getEmptyMessage() {
-  switch (selectedFilter.value) {
-    case '待处理':
-      return '没有待处理的举报';
-    case '已处理':
-      return '没有已处理的举报';
-    case '已驳回':
-      return '没有被驳回的举报';
-    default:
-      return '您还没有提交过任何举报';
-  }
-}
-
-function formatTime(timeString) {
-  if (!timeString) return '';
-  
-  const date = new Date(timeString);
-  const now = new Date();
-  const diffInHours = (now - date) / (1000 * 60 * 60);
-  
-  if (diffInHours < 1) {
-    return '刚刚';
-  } else if (diffInHours < 24) {
-    return Math.floor(diffInHours) + ' 小时前';
-  } else if (diffInHours < 48) {
-    return '昨天';
-  } else {
-    return date.toLocaleDateString('zh-CN');
-  }
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '';
-  
-  const date = new Date(dateString);
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+function formatTime(time) {
+  return new Date(time).toLocaleString('zh-CN');
 }
 
 // 组件挂载
@@ -454,464 +329,250 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.my-reports-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+/* Main Layout */
+.my-reports-view {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
 }
-
 .page-header h1 {
-  margin: 0 0 8px 0;
-  color: #333;
-  font-size: 24px;
+  font-size: 1.75rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.page-header .subtitle {
+  color: var(--text-color-secondary);
 }
 
-.page-header p {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.reports-stats {
+/* Stats Grid */
+.stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+.stat-card {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.stat-icon-wrapper {
+  font-size: 1.5rem;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background-color: var(--primary-color);
+}
+.stat-icon-wrapper.icon-pending { background-color: var(--warning-color); }
+.stat-icon-wrapper.icon-processed { background-color: var(--success-color); }
+.stat-icon-wrapper.icon-rejected { background-color: var(--danger-color); }
+
+.stat-info .stat-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+.stat-info .stat-label {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
 }
 
-.stat-item {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.stat-item .count {
-  display: block;
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.stat-item .count.pending {
-  color: #ffc107;
-}
-
-.stat-item .count.processed {
-  color: #28a745;
-}
-
-.stat-item .count.rejected {
-  color: #dc3545;
-}
-
-.stat-item .label {
-  color: #666;
-  font-size: 12px;
-}
-
-.filter-section {
-  margin-bottom: 20px;
-}
-
+/* Filter Tabs */
 .filter-tabs {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  gap: 0.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .filter-tab {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background-color: transparent;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
 
 .filter-tab:hover {
-  border-color: #007bff;
-  color: #007bff;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .filter-tab.active {
-  background: #007bff;
+  background-color: var(--primary-color);
   color: white;
-  border-color: #007bff;
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(var(--primary-color), 0.2);
 }
 
 .count-badge {
-  background: rgba(255, 255, 255, 0.3);
-  color: inherit;
-  border-radius: 10px;
-  padding: 2px 6px;
-  font-size: 11px;
-  font-weight: bold;
-}
-
-.filter-tab.active .count-badge {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.filter-tab:not(.active) .count-badge {
-  background: #f8f9fa;
-  color: #666;
-}
-
-.reports-container {
-  background: white;
+  background-color: rgba(0,0,0,0.1);
+  padding: 0.1rem 0.4rem;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 0.75rem;
+}
+.filter-tab.active .count-badge {
+  background-color: rgba(255,255,255,0.2);
 }
 
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: #666;
+/* Reports List */
+.reports-list-container {
+  min-height: 300px;
 }
-
-.empty-reports {
-  text-align: center;
-  padding: 60px 20px;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-reports h3 {
-  margin: 0 0 8px 0;
-  color: #333;
-}
-
-.empty-reports p {
-  margin: 0;
-  color: #666;
-}
-
 .reports-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 1.5rem;
 }
 
 .report-item {
-  padding: 20px;
-  border-bottom: 1px solid #eee;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  transition: all 0.3s ease;
 }
 
-.report-item:last-child {
-  border-bottom: none;
+.report-item:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.report-header {
+.report-main {
+  padding: 1rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  gap: 1rem;
 }
 
-.report-info .report-reason {
-  font-size: 16px;
-  margin-bottom: 4px;
-  color: #333;
+.report-details .report-reason {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
-
-.report-time {
-  font-size: 12px;
-  color: #666;
+.report-details .report-description {
+  color: var(--text-color-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
 }
-
-.report-status {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-pending {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.status-processed {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-rejected {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.report-content {
-  margin-bottom: 16px;
-}
-
-.product-info {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-}
-
-.product-thumbnail {
-  flex-shrink: 0;
-}
-
-.product-thumbnail img {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.product-details {
-  flex: 1;
-}
-
-.product-name {
-  font-weight: 500;
-  margin-bottom: 4px;
-  color: #333;
-}
-
-.product-price {
-  color: #007bff;
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.product-available {
-  background: #d4edda;
-  color: #155724;
-}
-
-.product-sold {
-  background: #cce5ff;
-  color: #004085;
-}
-
-.product-removed {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.report-description {
-  color: #555;
-  line-height: 1.5;
-}
-
-.report-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  border-top: 1px solid #eee;
-}
-
-.page-info {
-  color: #666;
-  font-size: 14px;
-}
-
-/* 弹窗样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+.report-details .report-meta {
+  font-size: 0.8rem;
+  color: var(--text-color-secondary);
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  gap: 0.4rem;
 }
 
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  max-height: 80vh;
-  overflow-y: auto;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+.report-status-badge {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 500;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
 }
+.status-pending { background-color: rgba(var(--warning-color), 0.1); color: var(--warning-color); }
+.status-processed { background-color: rgba(var(--success-color), 0.1); color: var(--success-color); }
+.status-rejected { background-color: rgba(var(--danger-color), 0.1); color: var(--danger-color); }
 
-.modal-header {
+.report-target {
+  background-color: rgba(0,0,0,0.05);
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #eee;
 }
-
-.modal-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 18px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #666;
-  padding: 0;
-  width: 30px;
-  height: 30px;
+.target-info {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
+  gap: 1rem;
 }
-
-.close-btn:hover {
-  background: #f0f0f0;
+.target-image {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
 }
-
-.modal-body {
-  padding: 20px;
+.target-details .target-name {
+  font-weight: 500;
 }
+.target-details .target-price {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+}
+.target-actions .btn i { margin-right: 0.4rem; }
 
-.modal-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #eee;
+.report-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
 }
+.admin-reply {
+  font-size: 0.9rem;
+  color: var(--text-color-secondary);
+}
+.report-actions .btn i { margin-right: 0.4rem; }
 
-.report-detail {
+
+/* States */
+.loading-state, .empty-state {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-color-secondary);
 }
-
-.detail-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.detail-row strong {
-  min-width: 80px;
-  color: #333;
-}
-
-/* 按钮样式 */
-.btn {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-  display: inline-block;
-  font-size: 12px;
-  transition: all 0.2s;
-  background: white;
-  color: #333;
-}
-
-.btn-sm {
-  padding: 4px 8px;
-  font-size: 11px;
-}
-
-.btn-outline-primary {
-  color: #007bff;
-  border-color: #007bff;
-}
-
-.btn-outline-primary:hover {
-  background: #007bff;
-  color: white;
-}
-
-.btn-outline-danger {
-  color: #dc3545;
-  border-color: #dc3545;
-}
-
-.btn-outline-danger:hover {
-  background: #dc3545;
-  color: white;
-}
-
-.btn-outline-secondary {
-  color: #6c757d;
-  border-color: #6c757d;
-}
-
-.btn-outline-secondary:hover {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-  border-color: #6c757d;
-}
-
-.btn:disabled {
+.empty-state i {
+  color: var(--text-primary);
   opacity: 0.5;
-  cursor: not-allowed;
+  margin-bottom: 1rem;
+}
+.empty-state h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
 }
 
-@media (max-width: 768px) {
-  .my-reports-page {
-    padding: 16px;
-  }
-  
-  .reports-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .filter-tabs {
-    flex-direction: column;
-  }
-  
-  .report-header {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .product-info {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .report-actions {
-    flex-direction: column;
-  }
+/* Pagination */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pagination-controls .btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
 }
 </style> 
