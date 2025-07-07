@@ -2,7 +2,7 @@
 
 基于 Node.js + TypeScript + Express + Prisma 构建的现代化后端服务。
 
-## 🚀 技术栈
+##  技术栈
 
 - **运行时**: Node.js 18+
 - **语言**: TypeScript
@@ -13,7 +13,7 @@
 - **验证**: Joi
 - **文件上传**: Multer
 
-## 📦 快速开始
+##  快速开始
 
 ### 1. 安装依赖
 ```bash
@@ -52,7 +52,7 @@ npm run dev
 
 服务器将在 `http://localhost:8080` 启动
 
-## 📁 项目结构
+##  项目结构
 
 ```
 src/
@@ -90,7 +90,7 @@ prisma/
 └── schema.prisma       # 数据库模式定义
 ```
 
-## 🔌 API 接口
+##  API 接口
 
 ### 认证相关
 - `POST /api/auth/login` - 用户登录
@@ -120,7 +120,7 @@ prisma/
 ### 文件上传
 - `POST /api/upload/image` - 上传图片
 
-## 🛡️ 安全特性
+##  安全特性
 
 - **JWT认证**: 无状态身份验证
 - **密码哈希**: bcrypt加密存储
@@ -130,7 +130,7 @@ prisma/
 - **数据验证**: Joi模式验证
 - **SQL注入防护**: Prisma ORM保护
 
-## 📊 数据库模型
+##  数据库模型
 
 ### 用户 (User)
 - 支持学号唯一标识
@@ -171,28 +171,9 @@ npm run db:generate  # 生成Prisma客户端
 npm run db:studio    # 打开数据库管理界面
 ```
 
-## 🚀 部署
 
-### Docker部署
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 8080
-CMD ["npm", "start"]
-```
 
-### 云平台部署
-支持一键部署到：
-- Vercel
-- Railway
-- Heroku
-- DigitalOcean App Platform
-
-## ⚡ 性能特点
+##  性能特点
 
 - **快速启动**: 2-3秒冷启动
 - **低内存占用**: ~50MB
@@ -200,7 +181,7 @@ CMD ["npm", "start"]
 - **类型安全**: 完整TypeScript支持
 - **自动重载**: 开发时热更新
 
-## 🎯 为什么选择这个架构？
+##  为什么选择这个架构？
 
 1. **开发速度快**: 相比Spring Boot快3-5倍
 2. **学习成本低**: JavaScript/TypeScript生态丰富
@@ -208,22 +189,13 @@ CMD ["npm", "start"]
 4. **扩展性好**: 微服务架构友好
 5. **社区活跃**: 问题解决快，文档丰富
 
-## 📝 开发注意事项
+##  开发注意事项
 
 1. 确保MySQL服务运行
 2. 配置正确的环境变量
 3. 定期运行 `npm run db:generate` 更新Prisma客户端
 4. 使用TypeScript严格模式，确保类型安全
 
-## 🤝 贡献指南
-
-1. Fork项目
-2. 创建功能分支
-3. 提交更改
-4. 推送到分支
-5. 创建Pull Request
-
----
 
 **这个Node.js后端比Spring Boot更适合您的项目，因为：**
 - ✅ 开发速度快3-5倍
