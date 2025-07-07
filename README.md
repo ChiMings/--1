@@ -196,9 +196,3 @@ npm run db:studio    # 打开数据库管理界面
 3. 定期运行 `npm run db:generate` 更新Prisma客户端
 4. 使用TypeScript严格模式，确保类型安全
 
-
-**这个Node.js后端比Spring Boot更适合您的项目，因为：**
-- ✅ 开发速度快3-5倍
-- ✅ 配置简单，避免版本冲突
-- ✅ 部署容易，资源占用少
-- ✅ AI开发友好，问题定位准确 
